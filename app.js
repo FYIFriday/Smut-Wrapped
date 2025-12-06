@@ -809,10 +809,19 @@
     state.isProcessing = false;
     state.profileStats = null;
 
+    // Log out of AO3 first
+    if (elements.webview) {
+      // Navigate to AO3 logout page
+      elements.webview.src = 'https://archiveofourown.org/users/logout';
+
+      // Wait for logout to complete
+      await new Promise(function(resolve) { setTimeout(resolve, 1500); });
+    }
+
     // Clear session data
     await window.electronAPI.clearSession();
 
-    // Reload webview
+    // Navigate back to login page
     if (elements.webview) {
       elements.webview.src = 'https://archiveofourown.org/users/login';
     }
