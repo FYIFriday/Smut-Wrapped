@@ -23,7 +23,6 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       webviewTag: true
     },
-    icon: path.join(__dirname, 'assets', 'icon.png'),
     title: 'Smut Wrapped',
     backgroundColor: '#1a1a2e'
   });
