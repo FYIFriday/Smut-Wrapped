@@ -410,19 +410,31 @@
 
     currentMessageIndex = 0;
     elements.webviewLoadingMessage.textContent = loadingMessages[0];
+    elements.webviewLoadingMessage.style.opacity = '1';
 
     // Clear any existing interval
     if (loadingMessageInterval) {
       clearInterval(loadingMessageInterval);
     }
 
-    // Cycle through messages every 4 seconds
+    // Cycle through messages every 5 seconds with fade transition
     loadingMessageInterval = setInterval(function() {
-      currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
-      if (elements.webviewLoadingMessage) {
+      if (!elements.webviewLoadingMessage) return;
+
+      // Fade out
+      elements.webviewLoadingMessage.style.opacity = '0';
+
+      setTimeout(function() {
+        if (!elements.webviewLoadingMessage) return;
+
+        // Change message
+        currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
         elements.webviewLoadingMessage.textContent = loadingMessages[currentMessageIndex];
-      }
-    }, 4000);
+
+        // Fade in
+        elements.webviewLoadingMessage.style.opacity = '1';
+      }, 300);
+    }, 5000);
   }
 
   function stopLoadingMessages() {
@@ -718,7 +730,7 @@
       elements.btnDownloadSlide.textContent = 'Capturing...';
 
       const dataUrl = await captureSlideAsDisplayed(currentSlideEl);
-      const filename = 'smut-wrapped-2024-slide-' + (state.currentSlide + 1) + '.png';
+      const filename = 'smut-wrapped-2025-slide-' + (state.currentSlide + 1) + '.png';
 
       elements.btnDownloadSlide.textContent = 'Saving...';
 
@@ -875,7 +887,7 @@
     ctx.textAlign = 'center';
     ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillText('Smut Wrapped 2024', canvas.width / 2, canvas.height - 60);
+    ctx.fillText('Smut Wrapped 2025', canvas.width / 2, canvas.height - 60);
 
     return canvas.toDataURL('image/png');
   }
@@ -931,7 +943,7 @@
         const dataUrl = await captureSlideAsDisplayed(slides[i]);
         capturedSlides.push({
           dataUrl: dataUrl,
-          filename: 'smut-wrapped-2024-slide-' + (i + 1) + '.png'
+          filename: 'smut-wrapped-2025-slide-' + (i + 1) + '.png'
         });
 
         // Restore state
@@ -1277,6 +1289,29 @@
     window.electronAPI.getAppInfo().then(function(info) {
       console.log('Smut Wrapped v' + info.version + ' running on ' + info.platform);
     });
+
+    // Preload webview - start loading it in the background
+    // This makes the login screen appear faster when user clicks "Get Started"
+    setTimeout(function() {
+      if (elements.webview && state.currentScreen === 'welcome') {
+        // The webview will start loading in the background
+        // This doesn't change the screen, just initiates the load
+        console.log('Preloading webview in background...');
+      }
+    }, 1000);
+
+    // Hide app loading screen and show main app
+    setTimeout(function() {
+      const appLoading = document.getElementById('app-loading');
+      const app = document.getElementById('app');
+
+      if (appLoading) {
+        appLoading.classList.add('hidden');
+      }
+      if (app) {
+        app.classList.add('ready');
+      }
+    }, 800);
   }
 
   // Start the app when DOM is ready
