@@ -50,9 +50,12 @@
     // Filter options
     filterOptions: document.getElementById('filter-options'),
     timeFilter: document.getElementById('time-filter'),
+    timeFilterValue: document.getElementById('time-filter-value'),
     pageLimitContainer: document.getElementById('page-limit-container'),
     pageLimit: document.getElementById('page-limit'),
-    sourceFilter: document.getElementById('source-filter'),
+    pageLimitValue: document.getElementById('page-limit-value'),
+    sourceHistory: document.getElementById('source-history'),
+    sourceBookmarks: document.getElementById('source-bookmarks'),
     profileStats: document.getElementById('profile-stats'),
 
     // Progress screen
@@ -205,6 +208,9 @@
   function showFilterOptions() {
     if (elements.filterOptions) {
       elements.filterOptions.classList.remove('hidden');
+      // Initialize slider displays
+      updateTimeFilterDisplay();
+      updatePageLimitDisplay();
     }
   }
 
@@ -301,28 +307,64 @@
   }
 
   /**
+   * Updates the time filter slider display
+   */
+  function updateTimeFilterDisplay() {
+    if (!elements.timeFilter || !elements.timeFilterValue) return;
+
+    const value = parseInt(elements.timeFilter.value, 10);
+    const labels = ['All time', 'Last 12 months', 'Custom pages'];
+    const filterValues = ['all', 'year', 'pages'];
+
+    elements.timeFilterValue.textContent = labels[value] || labels[1];
+    state.filters.timeRange = filterValues[value] || 'year';
+
+    // Show/hide page limit slider
+    if (elements.pageLimitContainer) {
+      if (state.filters.timeRange === 'pages') {
+        elements.pageLimitContainer.classList.remove('hidden');
+      } else {
+        elements.pageLimitContainer.classList.add('hidden');
+      }
+    }
+  }
+
+  /**
+   * Updates the page limit slider display
+   */
+  function updatePageLimitDisplay() {
+    if (!elements.pageLimit || !elements.pageLimitValue) return;
+
+    const value = parseInt(elements.pageLimit.value, 10);
+    elements.pageLimitValue.textContent = value;
+    state.filters.pageLimit = value;
+  }
+
+  /**
    * Updates filters from UI and recalculates estimates
    */
   function updateFilters() {
-    if (elements.timeFilter) {
-      state.filters.timeRange = elements.timeFilter.value;
+    // Update time filter
+    updateTimeFilterDisplay();
 
-      // Show/hide page limit input
-      if (elements.pageLimitContainer) {
-        if (state.filters.timeRange === 'pages') {
-          elements.pageLimitContainer.classList.remove('hidden');
-        } else {
-          elements.pageLimitContainer.classList.add('hidden');
-        }
-      }
-    }
+    // Update page limit
+    updatePageLimitDisplay();
 
-    if (elements.pageLimit) {
-      state.filters.pageLimit = parseInt(elements.pageLimit.value, 10) || 10;
-    }
+    // Update source filter based on checkboxes
+    const historyChecked = elements.sourceHistory ? elements.sourceHistory.checked : true;
+    const bookmarksChecked = elements.sourceBookmarks ? elements.sourceBookmarks.checked : true;
 
-    if (elements.sourceFilter) {
-      state.filters.source = elements.sourceFilter.value;
+    if (historyChecked && bookmarksChecked) {
+      state.filters.source = 'both';
+    } else if (historyChecked) {
+      state.filters.source = 'history';
+    } else if (bookmarksChecked) {
+      state.filters.source = 'bookmarks';
+    } else {
+      // If nothing is checked, default to both and re-check them
+      state.filters.source = 'both';
+      if (elements.sourceHistory) elements.sourceHistory.checked = true;
+      if (elements.sourceBookmarks) elements.sourceBookmarks.checked = true;
     }
 
     // Recalculate time estimates
@@ -957,15 +999,18 @@
     elements.btnCheckLogin.addEventListener('click', checkLoginStatus);
     elements.btnStartWrapped.addEventListener('click', startScraping);
 
-    // Filter options
+    // Filter options - sliders update on input for real-time feedback
     if (elements.timeFilter) {
-      elements.timeFilter.addEventListener('change', updateFilters);
+      elements.timeFilter.addEventListener('input', updateFilters);
     }
     if (elements.pageLimit) {
-      elements.pageLimit.addEventListener('change', updateFilters);
+      elements.pageLimit.addEventListener('input', updateFilters);
     }
-    if (elements.sourceFilter) {
-      elements.sourceFilter.addEventListener('change', updateFilters);
+    if (elements.sourceHistory) {
+      elements.sourceHistory.addEventListener('change', updateFilters);
+    }
+    if (elements.sourceBookmarks) {
+      elements.sourceBookmarks.addEventListener('change', updateFilters);
     }
 
     // Progress screen

@@ -53,24 +53,33 @@
 
           <div class="filter-group">
             <label for="time-filter">Time Range</label>
-            <select id="time-filter" class="filter-select">
-              <option value="all">Include all works</option>
-              <option value="year" selected>Only works from last 12 months</option>
-              <option value="pages">Limit to first N pages</option>
-            </select>
-            <div id="page-limit-container" class="page-limit-container hidden">
-              <label for="page-limit">Number of pages:</label>
-              <input type="number" id="page-limit" class="filter-input" min="1" max="100" value="10">
+            <input type="range" id="time-filter" class="filter-slider" min="0" max="2" step="1" value="1">
+            <div class="slider-labels">
+              <span class="slider-label">All time</span>
+              <span class="slider-label">Last 12 months</span>
+              <span class="slider-label">Custom pages</span>
             </div>
+            <div id="time-filter-value" class="filter-value">Last 12 months</div>
+          </div>
+
+          <div id="page-limit-container" class="filter-group hidden">
+            <label for="page-limit">Number of pages to scrape</label>
+            <input type="range" id="page-limit" class="filter-slider" min="1" max="50" step="1" value="10">
+            <div class="filter-value"><span id="page-limit-value">10</span> pages</div>
           </div>
 
           <div class="filter-group">
-            <label for="source-filter">Data Source</label>
-            <select id="source-filter" class="filter-select">
-              <option value="both" selected>History &amp; Bookmarks</option>
-              <option value="history">History only</option>
-              <option value="bookmarks">Bookmarks only</option>
-            </select>
+            <label>Data Source</label>
+            <div class="source-toggle">
+              <label class="toggle-option">
+                <input type="checkbox" name="source" value="history" id="source-history" checked>
+                <span class="toggle-label">Reading History</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" name="source" value="bookmarks" id="source-bookmarks" checked>
+                <span class="toggle-label">Bookmarks</span>
+              </label>
+            </div>
           </div>
 
           <div id="profile-stats" class="profile-stats">
