@@ -10,9 +10,53 @@ Smut Wrapped is a desktop application that generates beautiful, shareable statis
 
 ---
 
+## Download & Install
+
+**No technical knowledge required!** Just download, install, and run.
+
+### Windows
+
+1. Download `Smut-Wrapped-Setup.exe` from the [Releases page](../../releases/latest)
+2. Double-click the downloaded file
+3. Follow the installer prompts
+4. Launch "Smut Wrapped" from your Start Menu or Desktop
+
+### macOS
+
+1. Download `Smut-Wrapped.dmg` from the [Releases page](../../releases/latest)
+2. Double-click the downloaded file
+3. Drag "Smut Wrapped" to your Applications folder
+4. Launch from Applications (you may need to right-click → Open the first time)
+
+### Linux
+
+1. Download `Smut-Wrapped.AppImage` from the [Releases page](../../releases/latest)
+2. Make it executable: right-click → Properties → Permissions → "Allow executing as program"
+3. Double-click to run
+
+---
+
+## How to Use
+
+1. **Open** Smut Wrapped
+2. **Click "Get Started"** on the welcome screen
+3. **Log into AO3** in the app's built-in browser
+4. **Click "Start My Wrapped!"** when logged in
+5. **Wait** while your stats are generated (this takes a while - we're respectful of AO3's servers!)
+6. **Enjoy** your personalized Wrapped slides!
+7. **Download** your slides to share on social media
+
+### Navigation
+
+- Use **arrow keys** or **swipe** to move between slides
+- Click **"Download This Slide"** to save the current slide as an image
+- Click **"Download All Slides"** to save everything for sharing
+
+---
+
 ## Features
 
-- **Total Reading Stats** - Words read, works consumed, time spent in fandom
+- **Total Reading Stats** - Words read, works consumed, equivalent novels
 - **Top Fandoms** - Your most-read fandoms of the year
 - **Favorite Ships** - The pairings you couldn't get enough of
 - **Beloved Tropes** - Your go-to tags and themes
@@ -20,60 +64,11 @@ Smut Wrapped is a desktop application that generates beautiful, shareable statis
 - **Rating Breakdown** - Your G to E distribution (no judgment!)
 - **Hidden Gems** - Low-kudos works you loved
 - **Longest Reads** - Your epic fic journeys
+- **Smut Percentage** - How spicy is your reading taste?
+- **Fluff vs Angst** - Are you a comfort reader or do you like pain?
 - **And more!**
 
-All presented in beautiful, shareable slides you can download and post to social media.
-
----
-
-## Download
-
-### Pre-built Releases
-
-Download the latest release for your platform:
-
-- **Windows**: `smut-wrapped-Setup-1.0.0.exe`
-- **macOS**: `smut-wrapped-1.0.0.dmg`
-- **Linux**: `smut-wrapped-1.0.0.AppImage`
-
-[Download from Releases](#) <!-- Add actual release link -->
-
-### Build from Source
-
-If you prefer to build from source (recommended for the privacy-conscious):
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/smut-wrapped.git
-cd smut-wrapped
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm start
-
-# Build for your platform
-npm run build
-```
-
----
-
-## How to Use
-
-1. **Download and open** Smut Wrapped
-2. **Click "Get Started"** on the welcome screen
-3. **Log into AO3** in the embedded browser
-4. **Click "Start My Wrapped!"** when logged in
-5. **Wait** while we respectfully gather your reading history
-6. **Enjoy** your personalized Wrapped presentation!
-7. **Download** your favorite slides to share
-
-### Navigation
-
-- **Arrow keys** or **swipe** to navigate between slides
-- **Download This Slide** - Save the current slide as an image
-- **Download All Slides** - Save all slides for sharing
+All presented in beautiful slides you can download and share on social media.
 
 ---
 
@@ -103,19 +98,20 @@ You can verify this by reading the source code - it's all here in this repositor
 
 We deliberately add a **5-second delay** between each request to AO3. This is non-negotiable - AO3 runs on donated servers and serves millions of fans. We will not contribute to server load.
 
-For a typical reading history:
+Estimated times based on history size:
 - ~50 works: ~5 minutes
 - ~200 works: ~20 minutes
 - ~500 works: ~45 minutes
 
+You can leave it running in the background while you do other things!
+
 ### Is the app safe to use?
 
-The app is completely open source. You can:
-1. Read every line of code in this repository
-2. Build it yourself from source
-3. Run it in development mode to inspect network requests
-
-There are no hidden behaviors, no phone-home features, and no data collection.
+Yes! The app is:
+- **Open source** - Every line of code is visible in this repository
+- **Privacy-first** - No data ever leaves your computer
+- **Sandboxed** - Runs in an isolated environment
+- **Self-cleaning** - All session data is erased when you close the app
 
 ### Why "Smut Wrapped"?
 
@@ -133,9 +129,13 @@ The app handles large histories, but will take longer. For very large histories 
 
 Works that have been deleted or made private will be skipped. The final stats will note how many works couldn't be loaded.
 
-### Can I customize what year/timeframe to analyze?
+### Windows says the app is from an "unknown publisher"
 
-Currently, Smut Wrapped analyzes your entire reading history. Date-range filtering is planned for a future update.
+This is normal for free/open-source software that hasn't paid for a code signing certificate ($400+/year). Click "More info" → "Run anyway" to proceed. The app is safe - you can verify by reading the source code.
+
+### macOS says the app is from an "unidentified developer"
+
+Right-click the app → click "Open" → click "Open" again. This is Apple's security for apps not from the App Store. The app is safe to use.
 
 ---
 
@@ -143,28 +143,41 @@ Currently, Smut Wrapped analyzes your entire reading history. Date-range filteri
 
 **TL;DR: We collect nothing. Zero. Zilch.**
 
-### Detailed Privacy Information
-
-1. **Authentication**: You log into AO3 directly in an embedded browser. Your credentials are handled by AO3's servers, not ours. The app uses session cookies that are cleared when you close the app.
+1. **Authentication**: You log into AO3 directly in an embedded browser. Your credentials are handled by AO3's servers only. The app uses session cookies that are cleared when you close the app.
 
 2. **Data Processing**: All scraping and analysis happens locally on your device. No external servers are contacted except AO3 itself.
 
 3. **Storage**: Nothing is permanently stored. When you close the app, all data is cleared.
 
-4. **Network Requests**: The only network requests are to archiveofourown.org to fetch your reading history. You can verify this by monitoring network traffic.
+4. **Network Requests**: The only network requests are to archiveofourown.org to fetch your reading history.
 
-5. **Analytics/Tracking**: None. No Google Analytics, no Mixpanel, no telemetry, no error reporting services.
+5. **Analytics/Tracking**: None. No Google Analytics, no telemetry, no error reporting.
 
 ---
 
-## Technical Details
+## For Developers
 
-### Stack
-- **Electron** - Cross-platform desktop framework
-- **Vanilla JS** - No heavy frameworks needed
-- **html2canvas** - For slide image generation
+### Building from Source
+
+If you want to build the app yourself (for extra peace of mind about privacy):
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/smut-wrapped.git
+cd smut-wrapped
+
+# Install dependencies
+npm install
+
+# Run in development mode
+npm start
+
+# Build for your platform
+npm run build
+```
 
 ### Project Structure
+
 ```
 smut-wrapped/
 ├── main.js           # Electron main process
@@ -180,40 +193,7 @@ smut-wrapped/
     └── icon.svg      # App icon source
 ```
 
-### Rate Limiting
-
-The scraper enforces a **minimum 5-second delay** between all requests to AO3. This is intentional and will not be reduced. AO3 is a non-profit running on donations - we must be respectful.
-
-### Security
-
-- Context isolation enabled
-- Node integration disabled
-- Preload script provides minimal API surface
-- No remote code execution
-- All cookies cleared on app close
-
----
-
-## Building Icons
-
-The app uses `assets/icon.svg` as the source. To generate platform-specific icons:
-
-```bash
-# Install icon generator
-npm install -g electron-icon-builder
-
-# Generate icons
-electron-icon-builder --input=assets/icon.svg --output=assets
-```
-
-Or manually create:
-- `icon.ico` (Windows) - 256x256 multi-resolution
-- `icon.icns` (macOS) - Required sizes: 16, 32, 64, 128, 256, 512, 1024
-- `icon.png` (Linux) - 512x512 or 1024x1024
-
----
-
-## Contributing
+### Contributing
 
 Contributions are welcome! Please:
 
@@ -223,8 +203,7 @@ Contributions are welcome! Please:
 4. Test thoroughly
 5. Submit a pull request
 
-### Guidelines
-
+**Important guidelines:**
 - Maintain the 5-second rate limit - this is non-negotiable
 - Keep data local - no external services
 - Test with both small and large reading histories
@@ -252,7 +231,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 Found a bug? Have a feature request?
 
-[Open an issue](https://github.com/yourusername/smut-wrapped/issues)
+[Open an issue](../../issues)
 
 ---
 
