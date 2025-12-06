@@ -2,6 +2,9 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -9,6 +12,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -26,10 +30,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build for ${{ matrix.platform }}
         run: npm run build:${{ matrix.platform }}
@@ -48,7 +51,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
 
     steps:
       - name: Download all artifacts
@@ -56,14 +60,38 @@ jobs:
         with:
           path: artifacts
 
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Delete existing release
+        uses: dev-drprasad/delete-tag-and-release@v1.1
+        with:
+          tag_name: v1.0.0
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          delete_release: true
+        continue-on-error: true
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v1.0.0
+          name: Smut Wrapped v1.0.0
+          body: |
+            ## Smut Wrapped v1.0.0
+
+            Your AO3 Year in Review - generates Spotify Wrapped-style statistics for your AO3 reading history.
+
+            ### Downloads
+            - **Windows**: Download the `.exe` file below
+            - **macOS**: Download the `.dmg` file below
+
+            ### First time running?
+            - **Windows**: Click "More info" → "Run anyway" if Windows warns about unknown publisher
+            - **macOS**: Right-click → "Open" if macOS warns about unidentified developer
           files: |
             artifacts/release-win/*.exe
             artifacts/release-mac/*.dmg
           draft: false
           prerelease: false
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -18,7 +18,13 @@
     stats: null,
     currentSlide: 0,
     totalSlides: 0,
-    isProcessing: false
+    isProcessing: false,
+    profileStats: null,
+    filters: {
+      timeRange: 'year',
+      pageLimit: 10,
+      source: 'both'
+    }
   };
 
   // ==================
@@ -40,6 +46,14 @@
     btnCheckLogin: document.getElementById('btn-check-login'),
     btnStartWrapped: document.getElementById('btn-start-wrapped'),
     loginStatus: document.getElementById('login-status'),
+
+    // Filter options
+    filterOptions: document.getElementById('filter-options'),
+    timeFilter: document.getElementById('time-filter'),
+    pageLimitContainer: document.getElementById('page-limit-container'),
+    pageLimit: document.getElementById('page-limit'),
+    sourceFilter: document.getElementById('source-filter'),
+    profileStats: document.getElementById('profile-stats'),
 
     // Progress screen
     progressBar: document.getElementById('progress-bar'),
@@ -86,12 +100,12 @@
    */
   function showScreen(screenName) {
     // Hide all screens
-    document.querySelectorAll('.screen').forEach(screen => {
+    document.querySelectorAll('.screen').forEach(function(screen) {
       screen.classList.remove('active');
     });
 
     // Show target screen
-    const targetScreen = document.getElementById(`screen-${screenName}`);
+    const targetScreen = document.getElementById('screen-' + screenName);
     if (targetScreen) {
       targetScreen.classList.add('active');
       state.currentScreen = screenName;
@@ -108,14 +122,14 @@
    * @param {string} message - Error message
    * @param {Function} onRetry - Retry callback (optional)
    */
-  function showError(title, message, onRetry = null) {
+  function showError(title, message, onRetry) {
     elements.errorTitle.textContent = title;
     elements.errorMessage.textContent = message;
     elements.errorModal.classList.remove('hidden');
 
     if (onRetry) {
       elements.btnErrorRetry.classList.remove('hidden');
-      elements.btnErrorRetry.onclick = () => {
+      elements.btnErrorRetry.onclick = function() {
         hideError();
         onRetry();
       };
@@ -140,7 +154,7 @@
    * @param {string} message - Status message
    * @param {string} type - Status type ('success', 'error', or '')
    */
-  function setLoginStatus(message, type = '') {
+  function setLoginStatus(message, type) {
     elements.loginStatus.textContent = message;
     elements.loginStatus.className = 'status-text';
     if (type) {
@@ -152,7 +166,7 @@
    * Checks if the user is logged into AO3
    */
   async function checkLoginStatus() {
-    setLoginStatus('Checking login status...');
+    setLoginStatus('Checking login status...', '');
 
     try {
       const result = await window.electronAPI.checkLogin();
@@ -163,20 +177,156 @@
 
         if (usernameResult.success && usernameResult.username) {
           state.username = usernameResult.username;
-          setLoginStatus(`Logged in as ${state.username}`, 'success');
+          setLoginStatus('Logged in as ' + state.username, 'success');
           elements.btnStartWrapped.disabled = false;
+
+          // Show filter options and fetch profile stats
+          showFilterOptions();
+          fetchProfileStats();
         } else {
           setLoginStatus('Logged in (username detection failed, but you can continue)', 'success');
           elements.btnStartWrapped.disabled = false;
+          showFilterOptions();
         }
       } else {
         setLoginStatus('Not logged in yet. Please log in above.', 'error');
         elements.btnStartWrapped.disabled = true;
+        hideFilterOptions();
       }
     } catch (error) {
-      setLoginStatus(`Error checking login: ${error.message}`, 'error');
+      setLoginStatus('Error checking login: ' + error.message, 'error');
       elements.btnStartWrapped.disabled = true;
     }
+  }
+
+  /**
+   * Shows the filter options panel
+   */
+  function showFilterOptions() {
+    if (elements.filterOptions) {
+      elements.filterOptions.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * Hides the filter options panel
+   */
+  function hideFilterOptions() {
+    if (elements.filterOptions) {
+      elements.filterOptions.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Fetches and displays profile statistics
+   */
+  async function fetchProfileStats() {
+    if (!state.username || !elements.profileStats) return;
+
+    elements.profileStats.innerHTML = '<p>Loading profile statistics...</p>';
+
+    try {
+      const result = await window.electronAPI.getProfileStats(state.username);
+
+      if (result.success && result.stats) {
+        state.profileStats = result.stats;
+        displayProfileStats();
+      } else {
+        elements.profileStats.innerHTML = '<p>Could not load profile statistics.</p>';
+      }
+    } catch (error) {
+      elements.profileStats.innerHTML = '<p>Error loading statistics.</p>';
+    }
+  }
+
+  /**
+   * Displays profile statistics and time estimates
+   */
+  function displayProfileStats() {
+    if (!state.profileStats || !elements.profileStats) return;
+
+    const stats = state.profileStats;
+    const timeFilter = elements.timeFilter ? elements.timeFilter.value : 'year';
+    const sourceFilter = elements.sourceFilter ? elements.sourceFilter.value : 'both';
+    const pageLimit = elements.pageLimit ? parseInt(elements.pageLimit.value, 10) : 10;
+
+    // Calculate estimated pages to scrape based on filters
+    let historyPages = stats.historyPages || 0;
+    let bookmarkPages = stats.bookmarkPages || 0;
+
+    if (timeFilter === 'pages') {
+      historyPages = Math.min(historyPages, pageLimit);
+      bookmarkPages = Math.min(bookmarkPages, pageLimit);
+    }
+
+    let totalPages = 0;
+    if (sourceFilter === 'both') {
+      totalPages = historyPages + bookmarkPages;
+    } else if (sourceFilter === 'history') {
+      totalPages = historyPages;
+    } else {
+      totalPages = bookmarkPages;
+    }
+
+    // Estimate time: ~5 seconds per page for listing + ~5 seconds per work for details
+    const estimatedWorks = totalPages * 20;
+    const listingTime = totalPages * 5; // seconds
+    const detailTime = estimatedWorks * 5; // seconds (this is the main time sink)
+    const totalSeconds = listingTime + detailTime;
+    const totalMinutes = Math.ceil(totalSeconds / 60);
+
+    let timeEstimate = '';
+    if (totalMinutes < 2) {
+      timeEstimate = 'Less than 2 minutes';
+    } else if (totalMinutes < 60) {
+      timeEstimate = 'About ' + totalMinutes + ' minutes';
+    } else {
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      timeEstimate = 'About ' + hours + ' hour' + (hours > 1 ? 's' : '') + (mins > 0 ? ' ' + mins + ' min' : '');
+    }
+
+    let html = '<p>Your profile has:</p>';
+
+    if (sourceFilter === 'both' || sourceFilter === 'history') {
+      html += '<p><span class="stat-highlight">~' + (stats.historyWorks || 0) + '</span> works in reading history (' + (stats.historyPages || 0) + ' pages)</p>';
+    }
+    if (sourceFilter === 'both' || sourceFilter === 'bookmarks') {
+      html += '<p><span class="stat-highlight">~' + (stats.bookmarkWorks || 0) + '</span> bookmarks (' + (stats.bookmarkPages || 0) + ' pages)</p>';
+    }
+
+    html += '<p>Estimated time: <span class="stat-highlight">' + timeEstimate + '</span></p>';
+
+    elements.profileStats.innerHTML = html;
+  }
+
+  /**
+   * Updates filters from UI and recalculates estimates
+   */
+  function updateFilters() {
+    if (elements.timeFilter) {
+      state.filters.timeRange = elements.timeFilter.value;
+
+      // Show/hide page limit input
+      if (elements.pageLimitContainer) {
+        if (state.filters.timeRange === 'pages') {
+          elements.pageLimitContainer.classList.remove('hidden');
+        } else {
+          elements.pageLimitContainer.classList.add('hidden');
+        }
+      }
+    }
+
+    if (elements.pageLimit) {
+      state.filters.pageLimit = parseInt(elements.pageLimit.value, 10) || 10;
+    }
+
+    if (elements.sourceFilter) {
+      state.filters.source = elements.sourceFilter.value;
+    }
+
+    // Recalculate time estimates
+    displayProfileStats();
   }
 
   /**
@@ -185,24 +335,24 @@
   function setupWebviewListeners() {
     if (!elements.webview) return;
 
-    elements.webview.addEventListener('did-navigate', (event) => {
+    elements.webview.addEventListener('did-navigate', function(event) {
       const url = event.url;
 
       // If navigated away from login page, user might be logged in
-      if (!url.includes('/users/login')) {
+      if (url.indexOf('/users/login') === -1) {
         setTimeout(checkLoginStatus, 1000);
       }
     });
 
-    elements.webview.addEventListener('did-navigate-in-page', (event) => {
+    elements.webview.addEventListener('did-navigate-in-page', function(event) {
       const url = event.url;
-      if (!url.includes('/users/login')) {
+      if (url.indexOf('/users/login') === -1) {
         setTimeout(checkLoginStatus, 1000);
       }
     });
 
     // Handle webview loading errors
-    elements.webview.addEventListener('did-fail-load', (event) => {
+    elements.webview.addEventListener('did-fail-load', function(event) {
       if (event.errorCode !== -3) { // Ignore aborted loads
         setLoginStatus('Failed to load AO3. Please check your internet connection.', 'error');
       }
@@ -218,8 +368,8 @@
    * @param {Object} progress - Progress object from scraper
    */
   function updateProgress(progress) {
-    elements.progressBar.style.width = `${progress.percent}%`;
-    elements.progressPercent.textContent = `${Math.round(progress.percent)}%`;
+    elements.progressBar.style.width = progress.percent + '%';
+    elements.progressPercent.textContent = Math.round(progress.percent) + '%';
     elements.progressStatus.textContent = progress.message || '';
     elements.progressDetail.textContent = progress.detail || '';
   }
@@ -250,8 +400,15 @@
         }
       }
 
+      // Pass filters to scraper
+      const options = {
+        timeRange: state.filters.timeRange,
+        pageLimit: state.filters.pageLimit,
+        source: state.filters.source
+      };
+
       // Start scraping
-      const result = await window.AO3Scraper.scrapeAll(state.username, updateProgress);
+      const result = await window.AO3Scraper.scrapeAll(state.username, updateProgress, options);
 
       if (!result.success) {
         if (result.cancelled) {
@@ -304,7 +461,7 @@
         detail: ''
       });
 
-      setTimeout(() => {
+      setTimeout(function() {
         showScreen('results');
         updateSlideNavigation();
         updateSliderValues(); // Initialize slider display values
@@ -342,7 +499,7 @@
   function updateSlideNavigation() {
     elements.btnPrevSlide.disabled = state.currentSlide === 0;
     elements.btnNextSlide.disabled = state.currentSlide === state.totalSlides - 1;
-    elements.slideCounter.textContent = `${state.currentSlide + 1} / ${state.totalSlides}`;
+    elements.slideCounter.textContent = (state.currentSlide + 1) + ' / ' + state.totalSlides;
   }
 
   /**
@@ -375,11 +532,8 @@
       const currentSlideEl = elements.slidesContainer.querySelector('.slide.active');
       if (!currentSlideEl) return;
 
-      // We'll use a simple canvas-based approach since html2canvas may not be loaded
-      // For now, create a simpler export
-
       const dataUrl = await captureSlideSimple(currentSlideEl);
-      const filename = `smut-wrapped-2024-slide-${state.currentSlide + 1}.png`;
+      const filename = 'smut-wrapped-2024-slide-' + (state.currentSlide + 1) + '.png';
 
       const result = await window.electronAPI.saveImage(dataUrl, filename);
 
@@ -387,7 +541,7 @@
         // Show brief success message
         const originalText = elements.btnDownloadSlide.textContent;
         elements.btnDownloadSlide.textContent = 'Saved!';
-        setTimeout(() => {
+        setTimeout(function() {
           elements.btnDownloadSlide.textContent = originalText;
         }, 2000);
       } else if (!result.canceled) {
@@ -400,7 +554,7 @@
   }
 
   /**
-   * Simple slide capture using canvas
+   * Enhanced slide capture with better text rendering
    * @param {HTMLElement} slideEl - Slide element
    * @returns {Promise<string>} Data URL
    */
@@ -417,10 +571,9 @@
       return canvas.toDataURL('image/png');
     }
 
-    // Fallback: create a canvas manually (limited functionality)
+    // Fallback: create a canvas manually with improved rendering
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const scale = 2;
 
     canvas.width = 1080;
     canvas.height = 1920;
@@ -433,42 +586,44 @@
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw text content
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
     // Get text content from slide
     const label = slideEl.querySelector('.slide-label');
     const number = slideEl.querySelector('.slide-number');
     const title = slideEl.querySelector('.slide-title');
     const subtitle = slideEl.querySelector('.slide-subtitle');
     const unit = slideEl.querySelector('.slide-unit');
+    const small = slideEl.querySelector('.slide-small');
+    const list = slideEl.querySelector('.slide-list');
+    const tagCloud = slideEl.querySelector('.tag-cloud');
 
-    let y = canvas.height / 2 - 200;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    let y = canvas.height / 2 - 300;
 
     if (label) {
-      ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = '600 36px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.fillText(label.textContent.toUpperCase(), canvas.width / 2, y);
-      y += 80;
+      y += 100;
     }
 
     if (number) {
-      ctx.font = 'bold 180px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = 'bold 160px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = '#e94560';
       ctx.fillText(number.textContent, canvas.width / 2, y);
-      y += 150;
+      y += 140;
     }
 
     if (title) {
-      ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = 'bold 64px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = '#ffffff';
       const titleText = title.textContent;
-      if (titleText.length > 20) {
-        ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, sans-serif';
+      // Word wrap for long titles
+      if (titleText.length > 25) {
+        ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, sans-serif';
       }
-      ctx.fillText(titleText, canvas.width / 2, y);
+      wrapText(ctx, titleText, canvas.width / 2, y, canvas.width - 100, 70);
       y += 100;
     }
 
@@ -482,15 +637,75 @@
     if (subtitle) {
       ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText(subtitle.textContent, canvas.width / 2, y);
+      wrapText(ctx, subtitle.textContent, canvas.width / 2, y, canvas.width - 100, 50);
+      y += 60;
+    }
+
+    if (small) {
+      ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText(small.textContent, canvas.width / 2, y + 40);
+    }
+
+    // Handle list slides
+    if (list) {
+      const items = list.querySelectorAll('.slide-list-item');
+      ctx.textAlign = 'left';
+      let listY = canvas.height / 2 - (items.length * 40);
+
+      items.forEach(function(item, index) {
+        const rank = item.querySelector('.slide-list-rank');
+        const name = item.querySelector('.slide-list-name');
+        const count = item.querySelector('.slide-list-count');
+
+        ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = '#e94560';
+        ctx.fillText((index + 1) + '.', 150, listY);
+
+        ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        if (name) {
+          ctx.fillText(name.textContent.substring(0, 35), 220, listY);
+        }
+
+        if (count) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.fillText(count.textContent, 850, listY);
+        }
+
+        listY += 70;
+      });
     }
 
     // Add watermark
+    ctx.textAlign = 'center';
     ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.fillText('Smut Wrapped 2024', canvas.width / 2, canvas.height - 60);
 
     return canvas.toDataURL('image/png');
+  }
+
+  /**
+   * Helper function to wrap text on canvas
+   */
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let testY = y;
+
+    for (let i = 0; i < words.length; i++) {
+      const testLine = line + words[i] + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && i > 0) {
+        ctx.fillText(line.trim(), x, testY);
+        line = words[i] + ' ';
+        testY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line.trim(), x, testY);
   }
 
   /**
@@ -512,7 +727,7 @@
         slides[i].style.opacity = '1';
 
         const dataUrl = await captureSlideSimple(slides[i]);
-        const filename = `smut-wrapped-2024-slide-${i + 1}.png`;
+        const filename = 'smut-wrapped-2024-slide-' + (i + 1) + '.png';
 
         await window.electronAPI.saveImage(dataUrl, filename);
 
@@ -524,11 +739,11 @@
         }
 
         // Small delay between saves
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(function(resolve) { setTimeout(resolve, 200); });
       }
 
       elements.btnDownloadAll.textContent = 'All Saved!';
-      setTimeout(() => {
+      setTimeout(function() {
         elements.btnDownloadAll.textContent = originalText;
         elements.btnDownloadAll.disabled = false;
       }, 2000);
@@ -550,6 +765,7 @@
     state.currentSlide = 0;
     state.totalSlides = 0;
     state.isProcessing = false;
+    state.profileStats = null;
 
     // Clear session data
     await window.electronAPI.clearSession();
@@ -560,7 +776,8 @@
     }
 
     elements.btnStartWrapped.disabled = true;
-    setLoginStatus('');
+    setLoginStatus('', '');
+    hideFilterOptions();
 
     showScreen('welcome');
   }
@@ -731,7 +948,7 @@
 
   function setupEventListeners() {
     // Welcome screen
-    elements.btnGetStarted.addEventListener('click', () => {
+    elements.btnGetStarted.addEventListener('click', function() {
       showScreen('login');
       setupWebviewListeners();
     });
@@ -739,6 +956,17 @@
     // Login screen
     elements.btnCheckLogin.addEventListener('click', checkLoginStatus);
     elements.btnStartWrapped.addEventListener('click', startScraping);
+
+    // Filter options
+    if (elements.timeFilter) {
+      elements.timeFilter.addEventListener('change', updateFilters);
+    }
+    if (elements.pageLimit) {
+      elements.pageLimit.addEventListener('change', updateFilters);
+    }
+    if (elements.sourceFilter) {
+      elements.sourceFilter.addEventListener('change', updateFilters);
+    }
 
     // Progress screen
     elements.btnCancelScrape.addEventListener('click', cancelScraping);
@@ -764,21 +992,21 @@
     document.addEventListener('keydown', handleKeydown);
 
     // Touch/swipe support for slides
-    let touchStartX = 0;
-    let touchEndX = 0;
+    var touchStartX = 0;
+    var touchEndX = 0;
 
-    elements.slidesContainer.addEventListener('touchstart', (e) => {
+    elements.slidesContainer.addEventListener('touchstart', function(e) {
       touchStartX = e.changedTouches[0].screenX;
     });
 
-    elements.slidesContainer.addEventListener('touchend', (e) => {
+    elements.slidesContainer.addEventListener('touchend', function(e) {
       touchEndX = e.changedTouches[0].screenX;
       handleSwipe();
     });
 
     function handleSwipe() {
-      const swipeThreshold = 50;
-      const diff = touchStartX - touchEndX;
+      var swipeThreshold = 50;
+      var diff = touchStartX - touchEndX;
 
       if (Math.abs(diff) > swipeThreshold) {
         if (diff > 0) {
@@ -801,8 +1029,8 @@
     showScreen('welcome');
 
     // Log app info
-    window.electronAPI.getAppInfo().then(info => {
-      console.log(`Smut Wrapped v${info.version} running on ${info.platform}`);
+    window.electronAPI.getAppInfo().then(function(info) {
+      console.log('Smut Wrapped v' + info.version + ' running on ' + info.platform);
     });
   }
 

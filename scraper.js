@@ -78,16 +78,16 @@ const AO3Scraper = (function () {
   }
 
   /**
-   * Fetches the total number of history pages for a user
-   * @param {string} username - AO3 username
+   * Fetches page count from a paginated AO3 page
+   * @param {string} url - URL to fetch
+   * @param {string} errorContext - Context for error messages
    * @returns {Promise<number>} Total number of pages
    */
-  async function getHistoryPageCount(username) {
-    const url = `${AO3_BASE_URL}/users/${username}/readings`;
+  async function getPageCount(url, errorContext) {
     const result = await window.electronAPI.fetchUrl(url);
 
     if (!result.success) {
-      throw new Error(`Failed to fetch history: ${result.error}`);
+      throw new Error(`Failed to fetch ${errorContext}: ${result.error}`);
     }
 
     const doc = parseHTML(result.html);
@@ -111,6 +111,26 @@ const AO3Scraper = (function () {
     });
 
     return maxPage;
+  }
+
+  /**
+   * Fetches the total number of history pages for a user
+   * @param {string} username - AO3 username
+   * @returns {Promise<number>} Total number of pages
+   */
+  async function getHistoryPageCount(username) {
+    const url = `${AO3_BASE_URL}/users/${username}/readings`;
+    return getPageCount(url, 'history');
+  }
+
+  /**
+   * Fetches the total number of bookmark pages for a user
+   * @param {string} username - AO3 username
+   * @returns {Promise<number>} Total number of pages
+   */
+  async function getBookmarkPageCount(username) {
+    const url = `${AO3_BASE_URL}/users/${username}/bookmarks`;
+    return getPageCount(url, 'bookmarks');
   }
 
   /**
@@ -218,6 +238,120 @@ const AO3Scraper = (function () {
     });
 
     return parsed;
+  }
+
+  /**
+   * Parses a single bookmark item from the bookmarks page
+   * @param {Element} item - DOM element representing a bookmark item
+   * @returns {Object} Parsed bookmark item
+   */
+  function parseBookmarkItem(item) {
+    // Get work link and ID
+    const titleLink = item.querySelector('h4.heading a');
+    if (!titleLink) return null;
+
+    const workUrl = titleLink.getAttribute('href');
+    const workIdMatch = workUrl.match(/\/works\/(\d+)/);
+    if (!workIdMatch) return null;
+
+    const workId = workIdMatch[1];
+    const title = titleLink.textContent.trim();
+
+    // Get author(s)
+    const authorLinks = item.querySelectorAll('a[rel="author"]');
+    const authors = Array.from(authorLinks).map(a => a.textContent.trim());
+
+    // Get fandoms
+    const fandomLinks = item.querySelectorAll('h5.fandoms a.tag');
+    const fandoms = Array.from(fandomLinks).map(a => a.textContent.trim());
+
+    // Get bookmark date
+    const dateElement = item.querySelector('.user .datetime');
+    let bookmarkDate = null;
+    if (dateElement) {
+      bookmarkDate = dateElement.textContent.trim();
+    }
+
+    // Get basic tags visible on bookmark page
+    const warningTags = getAllText(item, '.warnings.tags .tag');
+    const relationshipTags = getAllText(item, '.relationships.tags .tag');
+    const characterTags = getAllText(item, '.characters.tags .tag');
+    const freeformTags = getAllText(item, '.freeforms.tags .tag');
+
+    // Get word count if visible
+    const wordCountEl = item.querySelector('dd.words');
+    let wordCount = null;
+    if (wordCountEl) {
+      const wcText = wordCountEl.textContent.replace(/,/g, '');
+      wordCount = parseInt(wcText, 10);
+    }
+
+    return {
+      workId,
+      title,
+      authors,
+      fandoms,
+      visitCount: 1,
+      lastVisited: bookmarkDate,
+      warnings: warningTags,
+      relationships: relationshipTags,
+      characters: characterTags,
+      freeformTags,
+      wordCount,
+      isBookmark: true,
+      // These will be populated when we fetch individual work pages
+      rating: null,
+      kudos: null,
+      bookmarks: null,
+      chapters: null,
+      complete: null,
+      datePublished: null
+    };
+  }
+
+  /**
+   * Scrapes a single page of bookmarks
+   * @param {string} username - AO3 username
+   * @param {number} pageNum - Page number to fetch
+   * @returns {Promise<Object[]>} Array of bookmark items
+   */
+  async function scrapeBookmarkPage(username, pageNum) {
+    const url = `${AO3_BASE_URL}/users/${username}/bookmarks?page=${pageNum}`;
+    const result = await window.electronAPI.fetchUrl(url);
+
+    if (!result.success) {
+      throw new Error(`Failed to fetch bookmark page ${pageNum}: ${result.error}`);
+    }
+
+    const doc = parseHTML(result.html);
+    const items = doc.querySelectorAll('.bookmark.blurb');
+    const parsed = [];
+
+    items.forEach(item => {
+      const bookmarkItem = parseBookmarkItem(item);
+      if (bookmarkItem) {
+        parsed.push(bookmarkItem);
+      }
+    });
+
+    return parsed;
+  }
+
+  /**
+   * Checks if a date string is within the last 12 months
+   * @param {string} dateStr - Date string like "15 Mar 2024"
+   * @returns {boolean}
+   */
+  function isWithinLastYear(dateStr) {
+    if (!dateStr) return true; // If no date, include it
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return true; // If invalid date, include it
+
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    return date >= oneYearAgo;
   }
 
   /**
@@ -335,11 +469,13 @@ const AO3Scraper = (function () {
    * Scrapes all reading history for a user
    * @param {string} username - AO3 username
    * @param {Function} onProgress - Progress callback
+   * @param {Object} options - Scraping options
    * @returns {Promise<Object[]>} Array of all history items
    */
-  async function scrapeReadingHistory(username, onProgress) {
+  async function scrapeReadingHistory(username, onProgress, options = {}) {
     resetCancel();
     const allItems = [];
+    const { timeRange = 'all', pageLimit = 100 } = options;
 
     // Get total page count
     onProgress({
@@ -348,7 +484,12 @@ const AO3Scraper = (function () {
       percent: 0
     });
 
-    const totalPages = await getHistoryPageCount(username);
+    let totalPages = await getHistoryPageCount(username);
+
+    // Apply page limit if set
+    if (timeRange === 'pages' && pageLimit > 0) {
+      totalPages = Math.min(totalPages, pageLimit);
+    }
 
     onProgress({
       phase: 'history',
@@ -376,6 +517,67 @@ const AO3Scraper = (function () {
       if (page < totalPages) {
         await delay(RATE_LIMIT_MS);
       }
+    }
+
+    // Apply time range filter if set to "year"
+    if (timeRange === 'year') {
+      return allItems.filter(item => isWithinLastYear(item.lastVisited));
+    }
+
+    return allItems;
+  }
+
+  /**
+   * Scrapes all bookmarks for a user
+   * @param {string} username - AO3 username
+   * @param {Function} onProgress - Progress callback
+   * @param {Object} options - Scraping options
+   * @param {number} progressOffset - Offset for progress percentage
+   * @returns {Promise<Object[]>} Array of all bookmark items
+   */
+  async function scrapeBookmarks(username, onProgress, options = {}, progressOffset = 0) {
+    const allItems = [];
+    const { timeRange = 'all', pageLimit = 100 } = options;
+
+    // Get total page count
+    let totalPages = await getBookmarkPageCount(username);
+
+    // Apply page limit if set
+    if (timeRange === 'pages' && pageLimit > 0) {
+      totalPages = Math.min(totalPages, pageLimit);
+    }
+
+    onProgress({
+      phase: 'bookmarks',
+      message: `Found ${totalPages} pages of bookmarks`,
+      percent: progressOffset + 2
+    });
+
+    // Scrape each bookmark page
+    for (let page = 1; page <= totalPages; page++) {
+      if (isCancelled()) {
+        throw new Error('Scraping cancelled by user');
+      }
+
+      onProgress({
+        phase: 'bookmarks',
+        message: `Fetching bookmarks... Page ${page}/${totalPages}`,
+        detail: `Respecting AO3's servers - please wait`,
+        percent: progressOffset + (page / totalPages) * 12
+      });
+
+      const items = await scrapeBookmarkPage(username, page);
+      allItems.push(...items);
+
+      // Rate limit between pages
+      if (page < totalPages) {
+        await delay(RATE_LIMIT_MS);
+      }
+    }
+
+    // Apply time range filter if set to "year"
+    if (timeRange === 'year') {
+      return allItems.filter(item => isWithinLastYear(item.lastVisited));
     }
 
     return allItems;
@@ -431,25 +633,79 @@ const AO3Scraper = (function () {
   }
 
   /**
+   * Merges items from history and bookmarks, deduplicating by workId
+   * @param {Object[]} historyItems - Items from reading history
+   * @param {Object[]} bookmarkItems - Items from bookmarks
+   * @returns {Object[]} Merged array with duplicates removed
+   */
+  function mergeItems(historyItems, bookmarkItems) {
+    const seen = new Map();
+
+    // Add history items first (they have visit counts)
+    historyItems.forEach(item => {
+      seen.set(item.workId, item);
+    });
+
+    // Add bookmark items, merging with existing if present
+    bookmarkItems.forEach(item => {
+      if (seen.has(item.workId)) {
+        // Merge bookmark flag into existing item
+        const existing = seen.get(item.workId);
+        existing.isBookmark = true;
+      } else {
+        seen.set(item.workId, item);
+      }
+    });
+
+    return Array.from(seen.values());
+  }
+
+  /**
    * Main scraping function - orchestrates the entire process
    * @param {string} username - AO3 username
    * @param {Function} onProgress - Progress callback
+   * @param {Object} options - Scraping options
    * @returns {Promise<Object>} Complete scraping results
    */
-  async function scrapeAll(username, onProgress) {
+  async function scrapeAll(username, onProgress, options = {}) {
     resetCancel();
 
-    try {
-      // Phase 1: Get reading history
-      const historyItems = await scrapeReadingHistory(username, onProgress);
+    const { source = 'both', timeRange = 'year', pageLimit = 10 } = options;
+    const scrapingOptions = { timeRange, pageLimit };
 
-      if (historyItems.length === 0) {
+    try {
+      let allItems = [];
+
+      // Phase 1a: Get reading history (if needed)
+      if (source === 'both' || source === 'history') {
+        const historyItems = await scrapeReadingHistory(username, onProgress, scrapingOptions);
+        allItems = historyItems;
+      }
+
+      // Phase 1b: Get bookmarks (if needed)
+      if (source === 'both' || source === 'bookmarks') {
+        if (source === 'both') {
+          await delay(RATE_LIMIT_MS);
+        }
+        const bookmarkItems = await scrapeBookmarks(username, onProgress, scrapingOptions, source === 'both' ? 30 : 0);
+
+        if (source === 'both') {
+          // Merge and deduplicate
+          allItems = mergeItems(allItems, bookmarkItems);
+        } else {
+          allItems = bookmarkItems;
+        }
+      }
+
+      if (allItems.length === 0) {
         return {
           success: true,
           items: [],
           totalWorks: 0,
           failed: 0,
-          message: 'No reading history found'
+          message: source === 'bookmarks' ? 'No bookmarks found' :
+                   source === 'history' ? 'No reading history found' :
+                   'No reading history or bookmarks found'
         };
       }
 
@@ -457,13 +713,13 @@ const AO3Scraper = (function () {
       onProgress({
         phase: 'metadata',
         message: 'Starting to analyze individual works...',
-        detail: `${historyItems.length} works to process`,
+        detail: `${allItems.length} works to process`,
         percent: 30
       });
 
       await delay(RATE_LIMIT_MS);
 
-      const { items, failed } = await enrichWithMetadata(historyItems, onProgress);
+      const { items, failed } = await enrichWithMetadata(allItems, onProgress);
 
       // Phase 3: Complete
       onProgress({
@@ -503,11 +759,13 @@ const AO3Scraper = (function () {
   return {
     scrapeAll,
     scrapeReadingHistory,
+    scrapeBookmarks,
     fetchWorkMetadata,
     requestCancel,
     resetCancel,
     isCancelled,
-    getHistoryPageCount
+    getHistoryPageCount,
+    getBookmarkPageCount
   };
 })();
 
