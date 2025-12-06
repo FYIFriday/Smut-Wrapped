@@ -43,6 +43,7 @@
 
     // Login screen
     webview: document.getElementById('ao3-webview'),
+    webviewLoading: document.getElementById('webview-loading'),
     btnCheckLogin: document.getElementById('btn-check-login'),
     btnStartWrapped: document.getElementById('btn-start-wrapped'),
     loginStatus: document.getElementById('login-status'),
@@ -377,6 +378,22 @@
   function setupWebviewListeners() {
     if (!elements.webview) return;
 
+    // Hide loading indicator when webview finishes loading
+    elements.webview.addEventListener('did-finish-load', function() {
+      if (elements.webviewLoading) {
+        elements.webviewLoading.classList.add('hidden');
+      }
+    });
+
+    // Also handle dom-ready as a fallback
+    elements.webview.addEventListener('dom-ready', function() {
+      if (elements.webviewLoading) {
+        setTimeout(function() {
+          elements.webviewLoading.classList.add('hidden');
+        }, 500);
+      }
+    });
+
     elements.webview.addEventListener('did-navigate', function(event) {
       const url = event.url;
 
@@ -396,6 +413,9 @@
     // Handle webview loading errors
     elements.webview.addEventListener('did-fail-load', function(event) {
       if (event.errorCode !== -3) { // Ignore aborted loads
+        if (elements.webviewLoading) {
+          elements.webviewLoading.classList.add('hidden');
+        }
         setLoginStatus('Failed to load AO3. Please check your internet connection.', 'error');
       }
     });
@@ -811,6 +831,11 @@
 
     // Log out of AO3 first
     if (elements.webview) {
+      // Show loading indicator
+      if (elements.webviewLoading) {
+        elements.webviewLoading.classList.remove('hidden');
+      }
+
       // Navigate to AO3 logout page
       elements.webview.src = 'https://archiveofourown.org/users/logout';
 
