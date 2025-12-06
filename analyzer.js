@@ -213,7 +213,7 @@ const StatsAnalyzer = (function () {
     stats.hiddenGem = potentialGems[0] || null;
 
     // ==================
-    // RAREST PAIR
+    // RAREST PAIRS
     // Ships with lowest work count that user read
     // Since we don't have global AO3 stats, use ships with fewest occurrences in user's history
     // ==================
@@ -222,9 +222,12 @@ const StatsAnalyzer = (function () {
       .filter(([ship, count]) => count === 1)
       .map(([ship]) => ship);
 
-    // Pick a random rare ship if there are any
+    // Store all rare ships (limit to 5 for display purposes)
+    stats.rarestPairs = rareShips.slice(0, 5);
+
+    // Keep single rarestPair for backwards compatibility
     stats.rarestPair = rareShips.length > 0
-      ? rareShips[Math.floor(Math.random() * rareShips.length)]
+      ? rareShips[0]
       : (stats.topShips[stats.topShips.length - 1]?.[0] || null);
 
     // ==================

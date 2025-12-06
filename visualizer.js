@@ -273,8 +273,15 @@ const Visualizer = (function () {
       }));
     }
 
-    // Slide 6: Rarest Pair (if available)
-    if (stats.rarestPair) {
+    // Slide 6: Rarest Pairs (if available)
+    if (stats.rarestPairs && stats.rarestPairs.length > 1) {
+      // Show multiple rare pairs as a list
+      slides.push(createListSlide({
+        title: 'Your Rarest Pairs',
+        items: stats.rarestPairs.map(ship => ({ name: ship, count: 1 }))
+      }));
+    } else if (stats.rarestPair) {
+      // Show single rare pair
       slides.push(createTitleSlide({
         label: 'Your rarest pair',
         title: stats.rarestPair,

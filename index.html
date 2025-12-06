@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src https://archiveofourown.org;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src https://archiveofourown.org;">
   <title>Smut Wrapped</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -35,7 +35,6 @@
             id="ao3-webview"
             src="https://archiveofourown.org/users/login"
             partition="persist:ao3"
-            allowpopups
           ></webview>
         </div>
 
@@ -47,6 +46,37 @@
         </div>
 
         <p id="login-status" class="status-text"></p>
+
+        <!-- Filtering Options -->
+        <div id="filter-options" class="filter-options hidden">
+          <h3>Options</h3>
+
+          <div class="filter-group">
+            <label for="time-filter">Time Range</label>
+            <select id="time-filter" class="filter-select">
+              <option value="all">Include all works</option>
+              <option value="year" selected>Only works from last 12 months</option>
+              <option value="pages">Limit to first N pages</option>
+            </select>
+            <div id="page-limit-container" class="page-limit-container hidden">
+              <label for="page-limit">Number of pages:</label>
+              <input type="number" id="page-limit" class="filter-input" min="1" max="100" value="10">
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label for="source-filter">Data Source</label>
+            <select id="source-filter" class="filter-select">
+              <option value="both" selected>History &amp; Bookmarks</option>
+              <option value="history">History only</option>
+              <option value="bookmarks">Bookmarks only</option>
+            </select>
+          </div>
+
+          <div id="profile-stats" class="profile-stats">
+            <!-- Will be populated with profile size and time estimate -->
+          </div>
+        </div>
       </div>
     </div>
 
@@ -66,6 +96,10 @@
         <div class="rate-limit-notice">
           <p>This takes a while because we respect AO3's servers</p>
           <p class="small-text">We wait 5 seconds between each request</p>
+        </div>
+
+        <div class="privacy-notice">
+          <p class="small-text">All scraping happens locally on your device. No data is sent to any server. Nothing is saved to your disk unless you save an image.</p>
         </div>
 
         <button id="btn-cancel-scrape" class="btn-secondary btn-small">Cancel</button>
@@ -89,6 +123,8 @@
         <button id="btn-download-all" class="btn-secondary">Download All Slides</button>
         <button id="btn-start-over" class="btn-text">Start Over</button>
       </div>
+
+      <p class="download-warning">Downloaded images may include your AO3 username, ships, and tags. Only save or share where you're comfortable.</p>
     </div>
 
     <!-- Error Modal -->
