@@ -15,8 +15,6 @@ jobs:
             platform: win
           - os: macos-latest
             platform: mac
-          - os: ubuntu-latest
-            platform: linux
 
     runs-on: ${{ matrix.os }}
 
@@ -45,7 +43,6 @@ jobs:
           path: |
             dist/*.exe
             dist/*.dmg
-            dist/*.AppImage
           if-no-files-found: error
 
   release:
@@ -65,7 +62,6 @@ jobs:
           files: |
             artifacts/release-win/*.exe
             artifacts/release-mac/*.dmg
-            artifacts/release-linux/*.AppImage
           draft: false
           prerelease: false
           generate_release_notes: true

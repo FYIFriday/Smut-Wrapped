@@ -28,12 +28,6 @@ Smut Wrapped is a desktop application that generates beautiful, shareable statis
 3. Drag "Smut Wrapped" to your Applications folder
 4. Launch from Applications (you may need to right-click → Open the first time)
 
-### Linux
-
-1. Download `Smut-Wrapped.AppImage` from the [Releases page](../../releases/latest)
-2. Make it executable: right-click → Properties → Permissions → "Allow executing as program"
-3. Double-click to run
-
 ---
 
 ## How to Use
