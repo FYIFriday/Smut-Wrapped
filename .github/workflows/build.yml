@@ -2,6 +2,9 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -48,7 +51,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
 
     steps:
       - name: Download all artifacts
@@ -56,14 +60,20 @@ jobs:
         with:
           path: artifacts
 
+      - name: List artifacts
+        run: find artifacts -type f
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v1.0.0
+          name: Smut Wrapped v1.0.0
           files: |
             artifacts/release-win/*.exe
             artifacts/release-mac/*.dmg
           draft: false
           prerelease: false
           generate_release_notes: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
