@@ -244,6 +244,7 @@ body {
   flex-direction: column;
   height: 100%;
   padding: 1.5rem;
+  overflow-y: auto;
 }
 
 .login-header {
@@ -263,6 +264,7 @@ body {
 
 .webview-container {
   flex: 1;
+  min-height: 350px;
   background: white;
   border-radius: 12px;
   overflow: hidden;

@@ -50,16 +50,8 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Clear all session data on app close for privacy
-  mainWindow.on('close', async () => {
-    try {
-      const ao3Session = getAO3Session();
-      await ao3Session.clearStorageData();
-      await ao3Session.clearCache();
-    } catch (error) {
-      console.error('Error clearing session data:', error);
-    }
-  });
+  // Note: Session data is now preserved between app launches for better UX
+  // Users can explicitly log out using the logout button to clear their session
 }
 
 // App ready event
@@ -104,23 +96,39 @@ ipcMain.handle('fetch-url', async (event, url) => {
     // Build cookie string
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-    // Fetch the URL
+    // Fetch the URL with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'SmutWrapped/1.0 (Respectful Bot; Desktop App for Personal AO3 Stats)',
         'Cookie': cookieString,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5'
-      }
+      },
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
+    // Return status for rate limiting detection (429, 503, etc.)
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const status = response.status;
+      // Return rate-limiting/server stress indicators without throwing
+      if (status === 429 || status === 503 || status === 502 || status === 504) {
+        return { success: false, error: `HTTP ${status}: ${response.statusText}`, status, rateLimited: true };
+      }
+      return { success: false, error: `HTTP ${status}: ${response.statusText}`, status };
     }
 
     const html = await response.text();
     return { success: true, html, status: response.status };
   } catch (error) {
+    // Detect timeout errors
+    if (error.name === 'AbortError') {
+      return { success: false, error: 'Request timed out', timeout: true };
+    }
     return { success: false, error: error.message };
   }
 });
@@ -133,6 +141,20 @@ ipcMain.handle('get-cookies', async () => {
     const ao3Session = getAO3Session();
     const cookies = await ao3Session.cookies.get({ url: AO3_BASE_URL });
     return { success: true, cookies };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Logs out of AO3 by clearing all session data
+ */
+ipcMain.handle('logout', async () => {
+  try {
+    const ao3Session = getAO3Session();
+    await ao3Session.clearStorageData();
+    await ao3Session.clearCache();
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
