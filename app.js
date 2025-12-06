@@ -1212,6 +1212,10 @@
     elements.btnGetStarted.addEventListener('click', function() {
       showScreen('login');
       setupWebviewListeners();
+      // Set webview src after listeners are attached so we catch loading events
+      if (elements.webview && !elements.webview.src) {
+        elements.webview.src = 'https://archiveofourown.org/users/login';
+      }
     });
 
     // Login screen
