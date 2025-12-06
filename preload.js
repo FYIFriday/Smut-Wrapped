@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUsername: () => ipcRenderer.invoke('get-username'),
 
   /**
+   * Gets profile statistics (page counts) for time estimation
+   * @param {string} username - AO3 username
+   * @returns {Promise<{success: boolean, stats?: Object}>}
+   */
+  getProfileStats: (username) => ipcRenderer.invoke('get-profile-stats', username),
+
+  /**
    * Saves an image to disk using a save dialog
    * @param {string} dataUrl - Base64 encoded PNG data URL
    * @param {string} defaultFilename - Default filename for save dialog

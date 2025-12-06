@@ -185,7 +185,32 @@ ipcMain.handle('check-login', async () => {
 });
 
 /**
- * Gets the logged-in username from AO3
+ * Validates a username by checking if the user page exists
+ * @param {string} username - Username to validate
+ * @param {string} cookieString - Cookie string for auth
+ * @returns {Promise<boolean>}
+ */
+async function validateUsername(username, cookieString) {
+  try {
+    const response = await fetch(`${AO3_BASE_URL}/users/${username}`, {
+      headers: {
+        'User-Agent': 'SmutWrapped/1.0 (Respectful Bot; Desktop App for Personal AO3 Stats)',
+        'Cookie': cookieString
+      }
+    });
+    // If we get a 200 and the page contains the username, it's valid
+    if (response.ok) {
+      const html = await response.text();
+      return html.includes(`/users/${username}/`) || html.includes(`>${username}<`);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gets the logged-in username from AO3 with validation
  */
 ipcMain.handle('get-username', async () => {
   try {
@@ -202,26 +227,111 @@ ipcMain.handle('get-username', async () => {
     });
 
     const html = await response.text();
+    let username = null;
 
     // Parse username from the "Hi, username!" greeting
     const usernameMatch = html.match(/Hi,\s*<a[^>]*>([^<]+)<\/a>/);
     if (usernameMatch) {
-      return { success: true, username: usernameMatch[1].trim() };
+      username = usernameMatch[1].trim();
     }
 
     // Try alternate pattern - look in the user navigation
-    const navMatch = html.match(/href="\/users\/([^"\/]+)"[^>]*>My Dashboard/);
-    if (navMatch) {
-      return { success: true, username: navMatch[1].trim() };
+    if (!username) {
+      const navMatch = html.match(/href="\/users\/([^"\/]+)"[^>]*>My Dashboard/);
+      if (navMatch) {
+        username = navMatch[1].trim();
+      }
     }
 
     // Try another pattern - greeting area
-    const greetMatch = html.match(/id="greeting"[^>]*>.*?<a[^>]*href="\/users\/([^"\/]+)"/s);
-    if (greetMatch) {
-      return { success: true, username: greetMatch[1].trim() };
+    if (!username) {
+      const greetMatch = html.match(/id="greeting"[^>]*>.*?<a[^>]*href="\/users\/([^"\/]+)"/s);
+      if (greetMatch) {
+        username = greetMatch[1].trim();
+      }
     }
 
-    return { success: false, error: 'Username not found in page' };
+    if (!username) {
+      return { success: false, error: 'Username not found in page' };
+    }
+
+    // Sanity check: validate that this username exists and matches a /users/{username} URL
+    const isValid = await validateUsername(username, cookieString);
+    if (!isValid) {
+      return { success: false, error: 'Username validation failed - please try logging in again' };
+    }
+
+    return { success: true, username };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Gets profile stats (history/bookmarks page counts) for time estimation
+ */
+ipcMain.handle('get-profile-stats', async (event, username) => {
+  try {
+    const ao3Session = getAO3Session();
+    const cookies = await ao3Session.cookies.get({ url: AO3_BASE_URL });
+    const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+
+    const stats = {
+      historyPages: 0,
+      historyWorks: 0,
+      bookmarkPages: 0,
+      bookmarkWorks: 0
+    };
+
+    // Fetch history page to get count
+    const historyResponse = await fetch(`${AO3_BASE_URL}/users/${username}/readings`, {
+      headers: {
+        'User-Agent': 'SmutWrapped/1.0 (Respectful Bot; Desktop App for Personal AO3 Stats)',
+        'Cookie': cookieString
+      }
+    });
+
+    if (historyResponse.ok) {
+      const historyHtml = await historyResponse.text();
+
+      // Look for pagination to find total pages
+      const historyPagesMatch = historyHtml.match(/href="[^"]*readings\?page=(\d+)"[^>]*>(\d+)<\/a>\s*<\/li>\s*<li[^>]*class="next"/);
+      if (historyPagesMatch) {
+        stats.historyPages = parseInt(historyPagesMatch[1], 10);
+      } else {
+        // Check if there's any pagination at all
+        const anyPageMatch = historyHtml.match(/class="pagination".*?page=(\d+)/s);
+        stats.historyPages = anyPageMatch ? parseInt(anyPageMatch[1], 10) : 1;
+      }
+
+      // Estimate works (20 per page)
+      stats.historyWorks = stats.historyPages * 20;
+    }
+
+    // Fetch bookmarks page to get count
+    const bookmarksResponse = await fetch(`${AO3_BASE_URL}/users/${username}/bookmarks`, {
+      headers: {
+        'User-Agent': 'SmutWrapped/1.0 (Respectful Bot; Desktop App for Personal AO3 Stats)',
+        'Cookie': cookieString
+      }
+    });
+
+    if (bookmarksResponse.ok) {
+      const bookmarksHtml = await bookmarksResponse.text();
+
+      // Look for pagination
+      const bookmarkPagesMatch = bookmarksHtml.match(/href="[^"]*bookmarks\?page=(\d+)"[^>]*>(\d+)<\/a>\s*<\/li>\s*<li[^>]*class="next"/);
+      if (bookmarkPagesMatch) {
+        stats.bookmarkPages = parseInt(bookmarkPagesMatch[1], 10);
+      } else {
+        const anyPageMatch = bookmarksHtml.match(/class="pagination".*?page=(\d+)/s);
+        stats.bookmarkPages = anyPageMatch ? parseInt(anyPageMatch[1], 10) : 1;
+      }
+
+      stats.bookmarkWorks = stats.bookmarkPages * 20;
+    }
+
+    return { success: true, stats };
   } catch (error) {
     return { success: false, error: error.message };
   }
