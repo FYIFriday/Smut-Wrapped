@@ -246,9 +246,18 @@ const AO3Scraper = (function () {
    * @returns {Object} Parsed bookmark item
    */
   function parseBookmarkItem(item) {
-    // Get work link and ID
-    const titleLink = item.querySelector('h4.heading a');
-    if (!titleLink) return null;
+    // Get work link and ID - try multiple selectors
+    let titleLink = item.querySelector('h4.heading a[href*="/works/"]');
+    if (!titleLink) {
+      titleLink = item.querySelector('h4 a[href*="/works/"]');
+    }
+    if (!titleLink) {
+      titleLink = item.querySelector('a.heading[href*="/works/"]');
+    }
+    if (!titleLink) {
+      // Skip non-work bookmarks (series, external works, etc.)
+      return null;
+    }
 
     const workUrl = titleLink.getAttribute('href');
     const workIdMatch = workUrl.match(/\/works\/(\d+)/);
@@ -261,12 +270,18 @@ const AO3Scraper = (function () {
     const authorLinks = item.querySelectorAll('a[rel="author"]');
     const authors = Array.from(authorLinks).map(a => a.textContent.trim());
 
-    // Get fandoms
-    const fandomLinks = item.querySelectorAll('h5.fandoms a.tag');
+    // Get fandoms - try multiple selectors
+    let fandomLinks = item.querySelectorAll('h5.fandoms a.tag');
+    if (fandomLinks.length === 0) {
+      fandomLinks = item.querySelectorAll('.fandoms a.tag');
+    }
     const fandoms = Array.from(fandomLinks).map(a => a.textContent.trim());
 
-    // Get bookmark date
-    const dateElement = item.querySelector('.user .datetime');
+    // Get bookmark date - try multiple locations
+    let dateElement = item.querySelector('.user .datetime');
+    if (!dateElement) {
+      dateElement = item.querySelector('.datetime');
+    }
     let bookmarkDate = null;
     if (dateElement) {
       bookmarkDate = dateElement.textContent.trim();
@@ -324,7 +339,22 @@ const AO3Scraper = (function () {
     }
 
     const doc = parseHTML(result.html);
-    const items = doc.querySelectorAll('.bookmark.blurb');
+
+    // Try multiple selectors to catch different bookmark types
+    // Works can be in .bookmark.blurb or .work.blurb depending on page structure
+    let items = doc.querySelectorAll('.bookmark.blurb.group');
+
+    // Fallback to other possible selectors
+    if (items.length === 0) {
+      items = doc.querySelectorAll('.bookmark.blurb');
+    }
+    if (items.length === 0) {
+      items = doc.querySelectorAll('li.bookmark');
+    }
+    if (items.length === 0) {
+      items = doc.querySelectorAll('ol.bookmark > li');
+    }
+
     const parsed = [];
 
     items.forEach(item => {

@@ -44,6 +44,7 @@
     // Login screen
     webview: document.getElementById('ao3-webview'),
     webviewLoading: document.getElementById('webview-loading'),
+    webviewLoadingMessage: document.getElementById('webview-loading-message'),
     btnCheckLogin: document.getElementById('btn-check-login'),
     btnStartWrapped: document.getElementById('btn-start-wrapped'),
     loginStatus: document.getElementById('login-status'),
@@ -250,59 +251,80 @@
    * Displays profile statistics and time estimates
    */
   function displayProfileStats() {
-    if (!state.profileStats || !elements.profileStats) return;
+    if (!elements.profileStats) return;
+
+    // Check if we have valid profile stats
+    if (!state.profileStats || (!state.profileStats.historyPages && !state.profileStats.bookmarkPages)) {
+      elements.profileStats.innerHTML = '<p class="small-text">Profile stats will be calculated once you start scraping.</p>';
+      return;
+    }
 
     const stats = state.profileStats;
-    const timeFilter = elements.timeFilter ? elements.timeFilter.value : 'year';
-    const sourceFilter = elements.sourceFilter ? elements.sourceFilter.value : 'both';
+    const timeFilterValue = elements.timeFilter ? parseInt(elements.timeFilter.value, 10) : 1;
+    const timeFilterOptions = ['all', 'year', 'pages'];
+    const timeFilter = timeFilterOptions[timeFilterValue] || 'year';
     const pageLimit = elements.pageLimit ? parseInt(elements.pageLimit.value, 10) : 10;
+
+    // Get source filter from checkboxes
+    const historyChecked = elements.sourceHistory ? elements.sourceHistory.checked : true;
+    const bookmarksChecked = elements.sourceBookmarks ? elements.sourceBookmarks.checked : true;
 
     // Calculate estimated pages to scrape based on filters
     let historyPages = stats.historyPages || 0;
     let bookmarkPages = stats.bookmarkPages || 0;
 
+    // Apply page limit if custom pages mode
     if (timeFilter === 'pages') {
       historyPages = Math.min(historyPages, pageLimit);
       bookmarkPages = Math.min(bookmarkPages, pageLimit);
     }
 
     let totalPages = 0;
-    if (sourceFilter === 'both') {
+    if (historyChecked && bookmarksChecked) {
       totalPages = historyPages + bookmarkPages;
-    } else if (sourceFilter === 'history') {
+    } else if (historyChecked) {
       totalPages = historyPages;
-    } else {
+    } else if (bookmarksChecked) {
       totalPages = bookmarkPages;
     }
 
-    // Estimate time: ~5 seconds per page for listing + ~5 seconds per work for details
-    const estimatedWorks = totalPages * 20;
-    const listingTime = totalPages * 5; // seconds
-    const detailTime = estimatedWorks * 5; // seconds (this is the main time sink)
-    const totalSeconds = listingTime + detailTime;
+    // More accurate time estimation
+    // Each page takes ~5 seconds to fetch (rate limited)
+    // Each work detail page takes ~5 seconds to fetch (rate limited)
+    const estimatedWorks = totalPages * 20; // ~20 works per page
+    const pagesFetchTime = totalPages * 5; // 5 seconds per listing page
+    const workDetailTime = estimatedWorks * 5; // 5 seconds per work detail
+    const totalSeconds = pagesFetchTime + workDetailTime;
     const totalMinutes = Math.ceil(totalSeconds / 60);
 
     let timeEstimate = '';
-    if (totalMinutes < 2) {
-      timeEstimate = 'Less than 2 minutes';
+    if (totalPages === 0) {
+      timeEstimate = 'No data to scrape';
+    } else if (totalMinutes < 2) {
+      timeEstimate = 'About 1-2 minutes';
     } else if (totalMinutes < 60) {
-      timeEstimate = 'About ' + totalMinutes + ' minutes';
+      timeEstimate = totalMinutes + '-' + Math.ceil(totalMinutes * 1.2) + ' minutes';
     } else {
       const hours = Math.floor(totalMinutes / 60);
       const mins = totalMinutes % 60;
-      timeEstimate = 'About ' + hours + ' hour' + (hours > 1 ? 's' : '') + (mins > 0 ? ' ' + mins + ' min' : '');
+      timeEstimate = hours + (mins > 30 ? '.5' : '') + '-' + (hours + 1) + ' hour' + (hours > 0 ? 's' : '');
     }
 
-    let html = '<p>Your profile has:</p>';
+    let html = '<p><strong>Estimated data to scrape:</strong></p>';
 
-    if (sourceFilter === 'both' || sourceFilter === 'history') {
-      html += '<p><span class="stat-highlight">~' + (stats.historyWorks || 0) + '</span> works in reading history (' + (stats.historyPages || 0) + ' pages)</p>';
+    if (historyChecked) {
+      html += '<p><span class="stat-highlight">~' + (historyPages * 20) + '</span> works from history (' + historyPages + ' pages)</p>';
     }
-    if (sourceFilter === 'both' || sourceFilter === 'bookmarks') {
-      html += '<p><span class="stat-highlight">~' + (stats.bookmarkWorks || 0) + '</span> bookmarks (' + (stats.bookmarkPages || 0) + ' pages)</p>';
+    if (bookmarksChecked) {
+      html += '<p><span class="stat-highlight">~' + (bookmarkPages * 20) + '</span> bookmarks (' + bookmarkPages + ' pages)</p>';
     }
 
-    html += '<p>Estimated time: <span class="stat-highlight">' + timeEstimate + '</span></p>';
+    if (totalPages > 0) {
+      html += '<p><strong>Estimated time:</strong> <span class="stat-highlight">' + timeEstimate + '</span></p>';
+      html += '<p class="small-text">Time varies based on network speed and AO3 server response.</p>';
+    } else {
+      html += '<p class="small-text">Please select at least one data source.</p>';
+    }
 
     elements.profileStats.innerHTML = html;
   }
@@ -373,14 +395,61 @@
   }
 
   /**
+   * Cycles through loading messages
+   */
+  let loadingMessageInterval = null;
+  const loadingMessages = [
+    "Loading AO3 login page...",
+    "Because we respect AO3's servers by spacing out requests, this may take a moment",
+    "Open-source, privacy-first, forever free"
+  ];
+  let currentMessageIndex = 0;
+
+  function startLoadingMessages() {
+    if (!elements.webviewLoadingMessage) return;
+
+    currentMessageIndex = 0;
+    elements.webviewLoadingMessage.textContent = loadingMessages[0];
+
+    // Clear any existing interval
+    if (loadingMessageInterval) {
+      clearInterval(loadingMessageInterval);
+    }
+
+    // Cycle through messages every 4 seconds
+    loadingMessageInterval = setInterval(function() {
+      currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+      if (elements.webviewLoadingMessage) {
+        elements.webviewLoadingMessage.textContent = loadingMessages[currentMessageIndex];
+      }
+    }, 4000);
+  }
+
+  function stopLoadingMessages() {
+    if (loadingMessageInterval) {
+      clearInterval(loadingMessageInterval);
+      loadingMessageInterval = null;
+    }
+  }
+
+  /**
    * Handles webview navigation events to detect successful login
    */
   function setupWebviewListeners() {
     if (!elements.webview) return;
 
+    // Show loading indicator when starting to load
+    elements.webview.addEventListener('did-start-loading', function() {
+      if (elements.webviewLoading) {
+        elements.webviewLoading.classList.remove('hidden');
+        startLoadingMessages();
+      }
+    });
+
     // Hide loading indicator when webview finishes loading
     elements.webview.addEventListener('did-finish-load', function() {
       if (elements.webviewLoading) {
+        stopLoadingMessages();
         elements.webviewLoading.classList.add('hidden');
       }
     });
@@ -389,8 +458,17 @@
     elements.webview.addEventListener('dom-ready', function() {
       if (elements.webviewLoading) {
         setTimeout(function() {
+          stopLoadingMessages();
           elements.webviewLoading.classList.add('hidden');
         }, 500);
+      }
+    });
+
+    // Show loading on navigation start
+    elements.webview.addEventListener('did-start-navigation', function() {
+      if (elements.webviewLoading) {
+        elements.webviewLoading.classList.remove('hidden');
+        startLoadingMessages();
       }
     });
 
@@ -562,6 +640,15 @@
     elements.btnPrevSlide.disabled = state.currentSlide === 0;
     elements.btnNextSlide.disabled = state.currentSlide === state.totalSlides - 1;
     elements.slideCounter.textContent = (state.currentSlide + 1) + ' / ' + state.totalSlides;
+
+    // Show "Download All" button only on the last slide
+    if (elements.btnDownloadAll) {
+      if (state.currentSlide === state.totalSlides - 1) {
+        elements.btnDownloadAll.style.display = '';
+      } else {
+        elements.btnDownloadAll.style.display = 'none';
+      }
+    }
   }
 
   /**
@@ -587,6 +674,39 @@
   }
 
   /**
+   * Captures a slide as it appears on screen
+   * @param {HTMLElement} slideEl - Slide element
+   * @returns {Promise<string>} Data URL
+   */
+  async function captureSlideAsDisplayed(slideEl) {
+    // Use html2canvas if available
+    if (typeof html2canvas !== 'undefined') {
+      const canvas = await html2canvas(slideEl, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        width: slideEl.offsetWidth,
+        height: slideEl.offsetHeight,
+        windowWidth: slideEl.scrollWidth,
+        windowHeight: slideEl.scrollHeight
+      });
+      return canvas.toDataURL('image/png');
+    }
+
+    // Fallback to capturing via Electron if available
+    if (window.electronAPI && window.electronAPI.captureSlide) {
+      const result = await window.electronAPI.captureSlide();
+      if (result.success) {
+        return result.dataUrl;
+      }
+    }
+
+    // Last resort: use the simple canvas method
+    return captureSlideSimple(slideEl);
+  }
+
+  /**
    * Downloads the current slide as an image
    */
   async function downloadCurrentSlide() {
@@ -594,23 +714,35 @@
       const currentSlideEl = elements.slidesContainer.querySelector('.slide.active');
       if (!currentSlideEl) return;
 
-      const dataUrl = await captureSlideSimple(currentSlideEl);
+      elements.btnDownloadSlide.disabled = true;
+      elements.btnDownloadSlide.textContent = 'Capturing...';
+
+      const dataUrl = await captureSlideAsDisplayed(currentSlideEl);
       const filename = 'smut-wrapped-2024-slide-' + (state.currentSlide + 1) + '.png';
+
+      elements.btnDownloadSlide.textContent = 'Saving...';
 
       const result = await window.electronAPI.saveImage(dataUrl, filename);
 
       if (result.success) {
         // Show brief success message
-        const originalText = elements.btnDownloadSlide.textContent;
         elements.btnDownloadSlide.textContent = 'Saved!';
         setTimeout(function() {
-          elements.btnDownloadSlide.textContent = originalText;
+          elements.btnDownloadSlide.textContent = 'Download This Slide';
+          elements.btnDownloadSlide.disabled = false;
         }, 2000);
       } else if (!result.canceled) {
+        elements.btnDownloadSlide.textContent = 'Download This Slide';
+        elements.btnDownloadSlide.disabled = false;
         showError('Download Failed', result.error || 'Could not save the image.');
+      } else {
+        elements.btnDownloadSlide.textContent = 'Download This Slide';
+        elements.btnDownloadSlide.disabled = false;
       }
     } catch (error) {
       console.error('Download error:', error);
+      elements.btnDownloadSlide.textContent = 'Download This Slide';
+      elements.btnDownloadSlide.disabled = false;
       showError('Download Failed', error.message);
     }
   }
@@ -775,23 +907,32 @@
    */
   async function downloadAllSlides() {
     const originalText = elements.btnDownloadAll.textContent;
-    elements.btnDownloadAll.textContent = 'Saving...';
     elements.btnDownloadAll.disabled = true;
 
     try {
       const slides = elements.slidesContainer.querySelectorAll('.slide');
+      const capturedSlides = [];
+
+      // Phase 1: Capture all slides
+      elements.btnDownloadAll.textContent = 'Capturing slides...';
 
       for (let i = 0; i < slides.length; i++) {
+        elements.btnDownloadAll.textContent = 'Capturing ' + (i + 1) + '/' + slides.length + '...';
+
         // Temporarily activate slide for capture
         const wasActive = slides[i].classList.contains('active');
         slides[i].classList.add('active');
         slides[i].style.transform = 'translateX(0)';
         slides[i].style.opacity = '1';
 
-        const dataUrl = await captureSlideSimple(slides[i]);
-        const filename = 'smut-wrapped-2024-slide-' + (i + 1) + '.png';
+        // Wait a moment for slide to render
+        await new Promise(function(resolve) { setTimeout(resolve, 100); });
 
-        await window.electronAPI.saveImage(dataUrl, filename);
+        const dataUrl = await captureSlideAsDisplayed(slides[i]);
+        capturedSlides.push({
+          dataUrl: dataUrl,
+          filename: 'smut-wrapped-2024-slide-' + (i + 1) + '.png'
+        });
 
         // Restore state
         if (!wasActive) {
@@ -799,16 +940,41 @@
           slides[i].style.transform = '';
           slides[i].style.opacity = '';
         }
-
-        // Small delay between saves
-        await new Promise(function(resolve) { setTimeout(resolve, 200); });
       }
 
-      elements.btnDownloadAll.textContent = 'All Saved!';
+      // Restore the last slide as active
+      slides[state.currentSlide].classList.add('active');
+
+      // Phase 2: Save all slides - use batch save if available
+      elements.btnDownloadAll.textContent = 'Saving...';
+
+      if (window.electronAPI.saveAllImages) {
+        // Use batch save API if available
+        const result = await window.electronAPI.saveAllImages(capturedSlides);
+        if (result.success) {
+          elements.btnDownloadAll.textContent = 'All Saved!';
+        } else if (result.canceled) {
+          elements.btnDownloadAll.textContent = originalText;
+          elements.btnDownloadAll.disabled = false;
+          return;
+        } else {
+          throw new Error(result.error || 'Failed to save slides');
+        }
+      } else {
+        // Fallback: save individually
+        for (let i = 0; i < capturedSlides.length; i++) {
+          elements.btnDownloadAll.textContent = 'Saving ' + (i + 1) + '/' + capturedSlides.length + '...';
+          await window.electronAPI.saveImage(capturedSlides[i].dataUrl, capturedSlides[i].filename);
+          await new Promise(function(resolve) { setTimeout(resolve, 100); });
+        }
+        elements.btnDownloadAll.textContent = 'All Saved!';
+      }
+
       setTimeout(function() {
         elements.btnDownloadAll.textContent = originalText;
         elements.btnDownloadAll.disabled = false;
       }, 2000);
+
     } catch (error) {
       console.error('Download all error:', error);
       elements.btnDownloadAll.textContent = originalText;

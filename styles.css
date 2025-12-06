@@ -259,6 +259,10 @@ body {
 .webview-loading p {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  transition: opacity 0.5s ease;
+  max-width: 400px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 #ao3-webview {
