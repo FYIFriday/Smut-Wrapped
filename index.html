@@ -74,6 +74,58 @@
 
     <!-- Screen 4: Results (Wrapped Slides) -->
     <div id="screen-results" class="screen">
+      <!-- Filter Panel -->
+      <div id="filter-panel" class="filter-panel">
+        <button id="btn-toggle-filters" class="btn-filter-toggle">
+          <span>⚙️ Filters</span>
+        </button>
+        <div id="filter-content" class="filter-content">
+          <h3>Filter Your Stats</h3>
+
+          <div class="filter-group">
+            <label for="word-count-min">Word Count Range</label>
+            <div class="slider-container">
+              <input type="range" id="word-count-min" min="0" max="200000" step="1000" value="0">
+              <input type="range" id="word-count-max" min="0" max="200000" step="1000" value="200000">
+            </div>
+            <div class="slider-values">
+              <span id="word-count-min-value">0</span> - <span id="word-count-max-value">200K+</span> words
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label>Ratings</label>
+            <div class="rating-checkboxes">
+              <label class="checkbox-label">
+                <input type="checkbox" class="rating-filter" value="Explicit" checked>
+                <span>Explicit</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="rating-filter" value="Mature" checked>
+                <span>Mature</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="rating-filter" value="Teen And Up Audiences" checked>
+                <span>Teen</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="rating-filter" value="General Audiences" checked>
+                <span>General</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" class="rating-filter" value="Not Rated" checked>
+                <span>Not Rated</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button id="btn-apply-filters" class="btn-primary btn-small">Apply Filters</button>
+            <button id="btn-reset-filters" class="btn-secondary btn-small">Reset</button>
+          </div>
+        </div>
+      </div>
+
       <div id="slides-container" class="slides-container">
         <!-- Slides will be dynamically generated here -->
       </div>

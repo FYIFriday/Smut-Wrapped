@@ -57,6 +57,17 @@
     btnDownloadAll: document.getElementById('btn-download-all'),
     btnStartOver: document.getElementById('btn-start-over'),
 
+    // Filter elements
+    btnToggleFilters: document.getElementById('btn-toggle-filters'),
+    filterContent: document.getElementById('filter-content'),
+    wordCountMin: document.getElementById('word-count-min'),
+    wordCountMax: document.getElementById('word-count-max'),
+    wordCountMinValue: document.getElementById('word-count-min-value'),
+    wordCountMaxValue: document.getElementById('word-count-max-value'),
+    ratingFilters: document.querySelectorAll('.rating-filter'),
+    btnApplyFilters: document.getElementById('btn-apply-filters'),
+    btnResetFilters: document.getElementById('btn-reset-filters'),
+
     // Error modal
     errorModal: document.getElementById('error-modal'),
     errorTitle: document.getElementById('error-title'),
@@ -296,6 +307,7 @@
       setTimeout(() => {
         showScreen('results');
         updateSlideNavigation();
+        updateSliderValues(); // Initialize slider display values
         state.isProcessing = false;
       }, 500);
 
@@ -554,6 +566,128 @@
   }
 
   // ==================
+  // Filtering
+  // ==================
+
+  /**
+   * Toggles the filter panel visibility
+   */
+  function toggleFilters() {
+    elements.filterContent.classList.toggle('active');
+  }
+
+  /**
+   * Updates the displayed slider values
+   */
+  function updateSliderValues() {
+    const minVal = parseInt(elements.wordCountMin.value);
+    const maxVal = parseInt(elements.wordCountMax.value);
+
+    // Format display values
+    elements.wordCountMinValue.textContent = minVal >= 1000
+      ? `${Math.round(minVal / 1000)}K`
+      : minVal;
+    elements.wordCountMaxValue.textContent = maxVal >= 200000
+      ? '200K+'
+      : maxVal >= 1000
+      ? `${Math.round(maxVal / 1000)}K`
+      : maxVal;
+
+    // Ensure min doesn't exceed max
+    if (minVal > maxVal) {
+      elements.wordCountMin.value = maxVal;
+    }
+  }
+
+  /**
+   * Gets the current filter settings
+   * @returns {Object} Filter settings
+   */
+  function getFilterSettings() {
+    const selectedRatings = Array.from(elements.ratingFilters)
+      .filter(cb => cb.checked)
+      .map(cb => cb.value);
+
+    return {
+      wordCountMin: parseInt(elements.wordCountMin.value),
+      wordCountMax: parseInt(elements.wordCountMax.value),
+      ratings: selectedRatings
+    };
+  }
+
+  /**
+   * Applies filters to the scraped data
+   * @param {Object[]} works - Array of work objects
+   * @param {Object} filters - Filter settings
+   * @returns {Object[]} Filtered works
+   */
+  function applyFilters(works, filters) {
+    return works.filter(work => {
+      // Filter by word count
+      const wordCount = work.wordCount || 0;
+      if (wordCount < filters.wordCountMin || wordCount > filters.wordCountMax) {
+        return false;
+      }
+
+      // Filter by rating
+      const rating = work.rating || 'Unknown';
+      if (!filters.ratings.includes(rating)) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * Resets filters to default values
+   */
+  function resetFilters() {
+    elements.wordCountMin.value = 0;
+    elements.wordCountMax.value = 200000;
+    updateSliderValues();
+
+    elements.ratingFilters.forEach(cb => {
+      cb.checked = true;
+    });
+
+    applyFiltersAndRegenerate();
+  }
+
+  /**
+   * Applies filters and regenerates the visualization
+   */
+  function applyFiltersAndRegenerate() {
+    if (!state.scrapedData) return;
+
+    const filters = getFilterSettings();
+    const filteredWorks = applyFilters(state.scrapedData, filters);
+
+    if (filteredWorks.length === 0) {
+      showError(
+        'No Results',
+        'No works match your current filters. Try adjusting your filter settings.',
+        null
+      );
+      return;
+    }
+
+    // Recalculate stats with filtered data
+    state.stats = window.StatsAnalyzer.analyze(filteredWorks);
+
+    // Regenerate slides
+    const slides = window.Visualizer.generateSlides(state.stats);
+    state.totalSlides = slides.length;
+    state.currentSlide = 0;
+
+    window.Visualizer.renderSlides(slides, elements.slidesContainer);
+    updateSlideNavigation();
+
+    // Close filter panel after applying
+    elements.filterContent.classList.remove('active');
+  }
+
+  // ==================
   // Keyboard Navigation
   // ==================
 
@@ -615,6 +749,13 @@
     elements.btnDownloadSlide.addEventListener('click', downloadCurrentSlide);
     elements.btnDownloadAll.addEventListener('click', downloadAllSlides);
     elements.btnStartOver.addEventListener('click', startOver);
+
+    // Filter controls
+    elements.btnToggleFilters.addEventListener('click', toggleFilters);
+    elements.wordCountMin.addEventListener('input', updateSliderValues);
+    elements.wordCountMax.addEventListener('input', updateSliderValues);
+    elements.btnApplyFilters.addEventListener('click', applyFiltersAndRegenerate);
+    elements.btnResetFilters.addEventListener('click', resetFilters);
 
     // Error modal
     elements.btnErrorClose.addEventListener('click', hideError);

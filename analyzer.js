@@ -119,7 +119,10 @@ const StatsAnalyzer = (function () {
     // TOP TAGS (FREEFORM)
     // ==================
 
-    const allTags = works.flatMap(w => w.freeformTags || []);
+    // Filter out non-meaningful tags
+    const tagsToExclude = ['HTML', 'html', 'http', 'https', 'www'];
+    const allTags = works.flatMap(w => w.freeformTags || [])
+      .filter(tag => !tagsToExclude.includes(tag));
     const tagCounts = countOccurrences(allTags);
     stats.topTags = getTopN(tagCounts, 30);
     stats.topTag = stats.topTags[0] || ['Unknown', 0];
