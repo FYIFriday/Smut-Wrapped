@@ -406,39 +406,46 @@
   let currentMessageIndex = 0;
 
   function startLoadingMessages() {
-    if (!elements.webviewLoadingMessage) return;
-
-    currentMessageIndex = 0;
-    elements.webviewLoadingMessage.textContent = loadingMessages[0];
-    elements.webviewLoadingMessage.style.opacity = '1';
-
-    // Clear any existing interval
-    if (loadingMessageInterval) {
-      clearInterval(loadingMessageInterval);
+    const messageEl = elements.webviewLoadingMessage;
+    if (!messageEl) {
+      console.log('Loading message element not found');
+      return;
     }
 
-    // Cycle through messages every 5 seconds with fade transition
+    // Reset to first message
+    currentMessageIndex = 0;
+    messageEl.textContent = loadingMessages[0];
+    messageEl.style.opacity = '1';
+
+    // Clear any existing interval
+    stopLoadingMessages();
+
+    console.log('Starting message cycling...');
+
+    // Cycle through messages every 4 seconds
     loadingMessageInterval = setInterval(function() {
-      if (!elements.webviewLoadingMessage) return;
+      if (!messageEl) return;
+
+      // Move to next message
+      currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
 
       // Fade out
-      elements.webviewLoadingMessage.style.opacity = '0';
+      messageEl.style.transition = 'opacity 0.3s ease';
+      messageEl.style.opacity = '0';
 
+      // Wait for fade out, then change text and fade in
       setTimeout(function() {
-        if (!elements.webviewLoadingMessage) return;
-
-        // Change message
-        currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
-        elements.webviewLoadingMessage.textContent = loadingMessages[currentMessageIndex];
-
-        // Fade in
-        elements.webviewLoadingMessage.style.opacity = '1';
+        if (!messageEl) return;
+        messageEl.textContent = loadingMessages[currentMessageIndex];
+        messageEl.style.opacity = '1';
+        console.log('Showing message ' + (currentMessageIndex + 1) + ': ' + loadingMessages[currentMessageIndex]);
       }, 300);
-    }, 5000);
+    }, 4000);
   }
 
   function stopLoadingMessages() {
     if (loadingMessageInterval) {
+      console.log('Stopping message cycling');
       clearInterval(loadingMessageInterval);
       loadingMessageInterval = null;
     }
@@ -1289,16 +1296,6 @@
     window.electronAPI.getAppInfo().then(function(info) {
       console.log('Smut Wrapped v' + info.version + ' running on ' + info.platform);
     });
-
-    // Preload webview - start loading it in the background
-    // This makes the login screen appear faster when user clicks "Get Started"
-    setTimeout(function() {
-      if (elements.webview && state.currentScreen === 'welcome') {
-        // The webview will start loading in the background
-        // This doesn't change the screen, just initiates the load
-        console.log('Preloading webview in background...');
-      }
-    }, 1000);
 
     // Hide app loading screen and show main app
     setTimeout(function() {
