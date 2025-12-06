@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src https://archiveofourown.org;">
+  <title>Smut Wrapped</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Screen 1: Welcome -->
+    <div id="screen-welcome" class="screen active">
+      <div class="welcome-content">
+        <h1 class="title">Smut Wrapped</h1>
+        <p class="year">2024</p>
+        <p class="subtitle">Your AO3 Year in Review</p>
+        <button id="btn-get-started" class="btn-primary">Get Started</button>
+        <footer class="welcome-footer">
+          <p>Privacy-first &bull; Open source &bull; Free forever</p>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Screen 2: Login -->
+    <div id="screen-login" class="screen">
+      <div class="login-container">
+        <div class="login-header">
+          <h2>Log into AO3</h2>
+          <p class="privacy-note">Your password stays on your device - we never see it</p>
+        </div>
+
+        <div class="webview-container">
+          <webview
+            id="ao3-webview"
+            src="https://archiveofourown.org/users/login"
+            partition="persist:ao3"
+            allowpopups
+          ></webview>
+        </div>
+
+        <div class="login-actions">
+          <button id="btn-check-login" class="btn-secondary">Check Login Status</button>
+          <button id="btn-start-wrapped" class="btn-primary" disabled>
+            I'm Logged In - Start My Wrapped!
+          </button>
+        </div>
+
+        <p id="login-status" class="status-text"></p>
+      </div>
+    </div>
+
+    <!-- Screen 3: Progress -->
+    <div id="screen-progress" class="screen">
+      <div class="progress-content">
+        <h2>Generating Your Wrapped...</h2>
+
+        <div class="progress-bar-container">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+
+        <p id="progress-percent" class="progress-percent">0%</p>
+        <p id="progress-status" class="progress-status">Preparing to fetch your reading history...</p>
+        <p id="progress-detail" class="progress-detail"></p>
+
+        <div class="rate-limit-notice">
+          <p>This takes a while because we respect AO3's servers</p>
+          <p class="small-text">We wait 5 seconds between each request</p>
+        </div>
+
+        <button id="btn-cancel-scrape" class="btn-secondary btn-small">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Screen 4: Results (Wrapped Slides) -->
+    <div id="screen-results" class="screen">
+      <div id="slides-container" class="slides-container">
+        <!-- Slides will be dynamically generated here -->
+      </div>
+
+      <div class="slide-navigation">
+        <button id="btn-prev-slide" class="nav-btn" disabled>&larr;</button>
+        <span id="slide-counter">1 / 1</span>
+        <button id="btn-next-slide" class="nav-btn">&rarr;</button>
+      </div>
+
+      <div class="results-actions">
+        <button id="btn-download-slide" class="btn-primary">Download This Slide</button>
+        <button id="btn-download-all" class="btn-secondary">Download All Slides</button>
+        <button id="btn-start-over" class="btn-text">Start Over</button>
+      </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="error-title">Error</h3>
+        <p id="error-message"></p>
+        <div class="modal-actions">
+          <button id="btn-error-retry" class="btn-primary">Retry</button>
+          <button id="btn-error-close" class="btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="scraper.js"></script>
+  <script src="analyzer.js"></script>
+  <script src="visualizer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

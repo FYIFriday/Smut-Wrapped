@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#2d1f3d"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94560"/>
+      <stop offset="50%" style="stop-color:#9d4edd"/>
+      <stop offset="100%" style="stop-color:#f72585"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+
+  <!-- Book/reading icon -->
+  <g transform="translate(106, 130)">
+    <!-- Open book shape -->
+    <path d="M150 0 C100 0 50 20 50 40 L50 200 C50 220 100 240 150 240 C200 240 250 220 250 200 L250 40 C250 20 200 0 150 0 Z"
+          fill="url(#accent)"
+          opacity="0.9"/>
+
+    <!-- Book spine -->
+    <path d="M150 0 L150 240"
+          stroke="#ffffff"
+          stroke-width="4"
+          stroke-linecap="round"
+          opacity="0.8"/>
+
+    <!-- Page lines left -->
+    <path d="M70 60 L130 50" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M70 90 L130 80" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M70 120 L130 110" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M70 150 L130 140" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+
+    <!-- Page lines right -->
+    <path d="M170 50 L230 60" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M170 80 L230 90" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M170 110 L230 120" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+    <path d="M170 140 L230 150" stroke="#ffffff" stroke-width="3" opacity="0.6"/>
+
+    <!-- Heart on book -->
+    <path d="M150 180 C150 165 135 155 120 160 C105 165 100 185 115 200 L150 230 L185 200 C200 185 195 165 180 160 C165 155 150 165 150 180 Z"
+          fill="#ffffff"/>
+  </g>
+
+  <!-- Sparkles -->
+  <circle cx="380" cy="100" r="8" fill="#e94560"/>
+  <circle cx="420" cy="160" r="5" fill="#9d4edd"/>
+  <circle cx="100" cy="380" r="6" fill="#f72585"/>
+  <circle cx="80" cy="120" r="4" fill="#e94560"/>
+</svg>
