@@ -8,8 +8,7 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder -mwl"
+    "build:all": "electron-builder -mw"
   },
   "keywords": [
     "ao3",
@@ -73,16 +72,6 @@
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.entertainment"
-    },
-    "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        }
-      ],
-      "icon": "assets/icon.png",
-      "category": "Utility"
     }
   }
 }
