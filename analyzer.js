@@ -252,11 +252,20 @@ const StatsAnalyzer = (function () {
       if (hasAngst) angstCount++;
     });
 
+    // Calculate percentages as ratio of fluff to angst (adding to 100%)
+    const moodTotal = fluffCount + angstCount;
+    let fluffPercent = 0;
+    let angstPercent = 0;
+    if (moodTotal > 0) {
+      fluffPercent = Math.round((fluffCount / moodTotal) * 100);
+      angstPercent = 100 - fluffPercent; // Ensure they add to 100%
+    }
+
     stats.moodStats = {
       fluff: fluffCount,
       angst: angstCount,
-      fluffPercent: Math.round((fluffCount / stats.totalWorks) * 100),
-      angstPercent: Math.round((angstCount / stats.totalWorks) * 100),
+      fluffPercent: fluffPercent,
+      angstPercent: angstPercent,
       preference: fluffCount > angstCount ? 'Fluff' : angstCount > fluffCount ? 'Angst' : 'Balanced'
     };
 
@@ -311,6 +320,203 @@ const StatsAnalyzer = (function () {
     const allWarnings = works.flatMap(w => w.warnings || []);
     const warningCounts = countOccurrences(allWarnings);
     stats.warningBreakdown = getTopN(warningCounts, 10);
+
+    // ==================
+    // BUSIEST MONTH (most words read)
+    // ==================
+
+    const monthWordCounts = new Map();
+    works.forEach(w => {
+      if (w.lastVisited) {
+        const date = new Date(w.lastVisited);
+        if (!isNaN(date)) {
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          monthWordCounts.set(monthKey, (monthWordCounts.get(monthKey) || 0) + (w.wordCount || 0));
+        }
+      }
+    });
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (monthWordCounts.size > 0) {
+      const busiestMonth = Array.from(monthWordCounts.entries())
+        .sort((a, b) => b[1] - a[1])[0];
+      const [yearMonth, wordCount] = busiestMonth;
+      const [year, month] = yearMonth.split('-');
+      stats.busiestMonth = {
+        name: monthNames[parseInt(month, 10) - 1] + ' ' + year,
+        words: wordCount,
+        wordsFormatted: formatNumber(wordCount)
+      };
+    } else {
+      stats.busiestMonth = null;
+    }
+
+    // ==================
+    // READING STREAK AND DAYS
+    // ==================
+
+    const readingDates = new Set();
+    works.forEach(w => {
+      if (w.lastVisited) {
+        const date = new Date(w.lastVisited);
+        if (!isNaN(date)) {
+          // Store as YYYY-MM-DD for unique days
+          const dateKey = date.toISOString().split('T')[0];
+          readingDates.add(dateKey);
+        }
+      }
+    });
+
+    stats.totalReadingDays = readingDates.size;
+
+    // Calculate longest streak
+    if (readingDates.size > 0) {
+      const sortedDates = Array.from(readingDates).sort();
+      let longestStreak = 1;
+      let currentStreak = 1;
+
+      for (let i = 1; i < sortedDates.length; i++) {
+        const prevDate = new Date(sortedDates[i - 1]);
+        const currDate = new Date(sortedDates[i]);
+        const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          currentStreak++;
+          longestStreak = Math.max(longestStreak, currentStreak);
+        } else {
+          currentStreak = 1;
+        }
+      }
+      stats.longestStreak = longestStreak;
+    } else {
+      stats.longestStreak = 0;
+    }
+
+    // ==================
+    // AVERAGE WORK SIZE
+    // ==================
+
+    const worksWithChapters = works.filter(w => w.chapters);
+    let totalChapters = 0;
+    worksWithChapters.forEach(w => {
+      const chapMatch = w.chapters?.match(/^(\d+)/);
+      if (chapMatch) {
+        totalChapters += parseInt(chapMatch[1], 10);
+      }
+    });
+
+    stats.averageChapters = worksWithChapters.length > 0
+      ? Math.round(totalChapters / worksWithChapters.length)
+      : 0;
+
+    // Size preference description
+    const avgWords = stats.averageWords;
+    if (avgWords < 2000) {
+      stats.sizePreference = { label: 'tiny', description: 'Quick reads are your jam!' };
+    } else if (avgWords < 7500) {
+      stats.sizePreference = { label: 'short', description: 'You like your fics bite-sized.' };
+    } else if (avgWords < 25000) {
+      stats.sizePreference = { label: 'medium', description: 'A solid one-sitting read.' };
+    } else if (avgWords < 75000) {
+      stats.sizePreference = { label: 'long', description: 'You\'re in it for the journey.' };
+    } else {
+      stats.sizePreference = { label: 'exhaustive', description: 'Epic sagas are your love language.' };
+    }
+
+    // ==================
+    // READING TIME ESTIMATE
+    // ==================
+
+    // Average reading speed: ~250 words per minute
+    const totalMinutes = Math.round(stats.totalWords / 250);
+    const totalHours = Math.round(totalMinutes / 60);
+    const totalDays = (totalHours / 24).toFixed(1);
+    stats.readingTime = {
+      minutes: totalMinutes,
+      hours: totalHours,
+      days: parseFloat(totalDays)
+    };
+
+    // ==================
+    // TOP TROPE TAG (excluding fandom/rating/category/author-like tags)
+    // ==================
+
+    const tropeExclusions = [
+      // Common non-trope tags
+      'Fanfiction', 'Fandom', 'Crossover', 'Alternate Universe',
+      // Ratings
+      'Explicit', 'Mature', 'Teen', 'General',
+      // Categories
+      'M/M', 'F/M', 'F/F', 'Gen', 'Multi', 'Other',
+      // Common meta tags
+      'POV', 'One Shot', 'Oneshot', 'Drabble', 'Ficlet', 'Series'
+    ];
+
+    const tropeTags = Array.from(tagCounts.entries())
+      .filter(([tag]) => {
+        const lowerTag = tag.toLowerCase();
+        // Filter out exclusions
+        if (tropeExclusions.some(ex => lowerTag.includes(ex.toLowerCase()))) return false;
+        // Filter out tags that look like character names (contain /)
+        if (tag.includes('/') && !lowerTag.includes('hurt')) return false;
+        return true;
+      })
+      .sort((a, b) => b[1] - a[1]);
+
+    stats.topTropeTag = tropeTags[0] || ['Unknown', 0];
+
+    // ==================
+    // BOOKMARK STATS (for works that came from bookmarks)
+    // ==================
+
+    const bookmarkedWorks = works.filter(w => w.source === 'bookmark' || w.isBookmarked);
+    const historyWorks = works.filter(w => w.source === 'history' || w.visitCount > 0);
+
+    stats.bookmarkStats = {
+      totalBookmarks: bookmarkedWorks.length,
+      totalHistory: historyWorks.length,
+      bookmarkRatio: stats.totalWorks > 0
+        ? Math.round((bookmarkedWorks.length / stats.totalWorks) * 100)
+        : 0
+    };
+
+    // Find works revisited but not bookmarked
+    const revisitedNotBookmarked = works.filter(w =>
+      (w.visitCount || 0) >= 2 && !w.isBookmarked && w.source !== 'bookmark'
+    ).sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0));
+
+    stats.bookmarkStats.secretFavorite = revisitedNotBookmarked[0] || null;
+
+    // Determine bookmark personality
+    const ratio = stats.bookmarkStats.bookmarkRatio;
+    if (ratio > 75) {
+      stats.bookmarkStats.personality = {
+        type: 'librarian',
+        message: "You're a librarian at heart — organized, intentional, and you know what deserves a spot."
+      };
+    } else if (ratio > 40) {
+      stats.bookmarkStats.personality = {
+        type: 'balanced',
+        message: "A healthy mix of bookmarking and casual reading. You know quality when you see it."
+      };
+    } else if (ratio > 10) {
+      stats.bookmarkStats.personality = {
+        type: 'chaos',
+        message: "You're a serial re-reader who refuses commitment. We respect the chaos."
+      };
+    } else if (bookmarkedWorks.length === 0) {
+      stats.bookmarkStats.personality = {
+        type: 'dangerous',
+        message: "You live dangerously. Your memory is your bookmarks."
+      };
+    } else {
+      stats.bookmarkStats.personality = {
+        type: 'dragon',
+        message: "Every good fic is a treasure and you hoard like a dragon."
+      };
+    }
 
     // ==================
     // SUMMARY OBJECT FOR EASY ACCESS

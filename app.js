@@ -21,8 +21,8 @@
     isProcessing: false,
     profileStats: null,
     filters: {
-      timeRange: 'year',
-      pageLimit: 10,
+      timeRange: 'pages',
+      pageLimit: 1,
       source: 'both'
     }
   };

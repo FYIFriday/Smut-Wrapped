@@ -657,6 +657,17 @@ body {
   word-break: break-word;
 }
 
+.invisible-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.invisible-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-primary);
+}
+
 .slide-subtitle {
   font-size: 1.3rem;
   color: var(--text-secondary);
@@ -666,6 +677,32 @@ body {
   font-size: 1rem;
   color: var(--text-muted);
   margin-top: 1rem;
+}
+
+/* Summary slide */
+.summary-stats {
+  text-align: left;
+  display: inline-block;
+  margin: 1.5rem 0;
+}
+
+.summary-item {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-item strong {
+  color: var(--text-primary);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* List slides */
