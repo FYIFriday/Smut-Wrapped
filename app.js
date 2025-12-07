@@ -484,15 +484,19 @@
     }
   }
 
+  // Track if webview listeners have been set up
+  let webviewListenersAttached = false;
+
   /**
    * Handles webview navigation events to detect successful login
    */
   function setupWebviewListeners() {
-    if (!elements.webview) return;
+    if (!elements.webview || webviewListenersAttached) return;
+    webviewListenersAttached = true;
 
-    // Show loading indicator when starting to load
+    // Show loading indicator when starting to load (only if on login screen)
     elements.webview.addEventListener('did-start-loading', function() {
-      if (elements.webviewLoading) {
+      if (elements.webviewLoading && state.currentScreen === 'login') {
         elements.webviewLoading.classList.remove('hidden');
         startLoadingMessages();
       }
@@ -516,9 +520,9 @@
       }
     });
 
-    // Show loading on navigation start
+    // Show loading on navigation start (only if on login screen)
     elements.webview.addEventListener('did-start-navigation', function() {
-      if (elements.webviewLoading) {
+      if (elements.webviewLoading && state.currentScreen === 'login') {
         elements.webviewLoading.classList.remove('hidden');
         startLoadingMessages();
       }
@@ -1257,6 +1261,13 @@
       if (elements.webview && !elements.webview.src) {
         elements.webview.src = 'https://archiveofourown.org/users/login';
       }
+      // If webview is still loading, show the loading overlay
+      if (elements.webview && elements.webview.isLoading && elements.webview.isLoading()) {
+        if (elements.webviewLoading) {
+          elements.webviewLoading.classList.remove('hidden');
+          startLoadingMessages();
+        }
+      }
     });
 
     // Login screen
@@ -1342,6 +1353,16 @@
     window.electronAPI.getAppInfo().then(function(info) {
       console.log('Smut Wrapped v' + info.version + ' running on ' + info.platform);
     });
+
+    // Preload webview in background - set up listeners first, then start loading
+    // This makes the login screen appear instantly when user clicks "Get Started"
+    setTimeout(function() {
+      if (elements.webview && state.currentScreen === 'welcome') {
+        setupWebviewListeners();
+        elements.webview.src = 'https://archiveofourown.org/users/login';
+        console.log('Preloading AO3 login page in background...');
+      }
+    }, 500);
 
     // Hide app loading screen and show main app
     setTimeout(function() {
