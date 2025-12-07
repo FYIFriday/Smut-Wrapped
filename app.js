@@ -21,8 +21,8 @@
     isProcessing: false,
     profileStats: null,
     filters: {
-      timeRange: 'year',
-      pageLimit: 10,
+      timeRange: 'pages',
+      pageLimit: 1,
       source: 'both'
     }
   };
@@ -47,6 +47,7 @@
     webviewLoadingMessage: document.getElementById('webview-loading-message'),
     btnCheckLogin: document.getElementById('btn-check-login'),
     btnStartWrapped: document.getElementById('btn-start-wrapped'),
+    btnLogout: document.getElementById('btn-logout'),
     loginStatus: document.getElementById('login-status'),
 
     // Filter options
@@ -205,6 +206,38 @@
   }
 
   /**
+   * Handles logging out of AO3
+   */
+  async function handleLogout() {
+    setLoginStatus('Logging out...', '');
+
+    try {
+      const result = await window.electronAPI.logout();
+
+      if (result.success) {
+        // Clear local state
+        state.username = null;
+        state.profileStats = null;
+
+        // Reset UI
+        elements.btnStartWrapped.disabled = true;
+        hideFilterOptions();
+
+        // Reload the webview to show fresh login page
+        if (elements.webview) {
+          elements.webview.src = 'https://archiveofourown.org/users/login';
+        }
+
+        setLoginStatus('Logged out successfully. You can log in again above.', 'success');
+      } else {
+        setLoginStatus('Error logging out: ' + (result.error || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      setLoginStatus('Error logging out: ' + error.message, 'error');
+    }
+  }
+
+  /**
    * Shows the filter options panel
    */
   function showFilterOptions() {
@@ -310,7 +343,7 @@
       timeEstimate = hours + (mins > 30 ? '.5' : '') + '-' + (hours + 1) + ' hour' + (hours > 0 ? 's' : '');
     }
 
-    let html = '<p><strong>Estimated data to scrape:</strong></p>';
+    let html = '<p class="small-text" style="margin-bottom: 0.75rem;">This app is designed to be as gentle as possible on AO3 and respectful with your data. It rate-limits itself, caches results, and keeps your information entirely on your computer.</p>';
 
     if (historyChecked) {
       html += '<p><span class="stat-highlight">~' + (historyPages * 20) + '</span> works from history (' + historyPages + ' pages)</p>';
@@ -321,7 +354,7 @@
 
     if (totalPages > 0) {
       html += '<p><strong>Estimated time:</strong> <span class="stat-highlight">' + timeEstimate + '</span></p>';
-      html += '<p class="small-text">Time varies based on network speed and AO3 server response.</p>';
+      html += '<p class="small-text">Due to rate limiting, this process takes a while. Thanks for your patience!</p>';
     } else {
       html += '<p class="small-text">Please select at least one data source.</p>';
     }
@@ -565,6 +598,14 @@
         pageLimit: state.filters.pageLimit,
         source: state.filters.source
       };
+
+      // Set up rate limit callback to notify user when AO3 is stressed
+      window.AO3Scraper.setRateLimitCallback(function(info) {
+        elements.progressDetail.textContent = info.message + ' (waiting ' + info.currentDelay + 's between requests)';
+      });
+
+      // Reset rate limit state from any previous run
+      window.AO3Scraper.resetRateLimit();
 
       // Start scraping
       const result = await window.AO3Scraper.scrapeAll(state.username, updateProgress, options);
@@ -1221,6 +1262,7 @@
     // Login screen
     elements.btnCheckLogin.addEventListener('click', checkLoginStatus);
     elements.btnStartWrapped.addEventListener('click', startScraping);
+    elements.btnLogout.addEventListener('click', handleLogout);
 
     // Filter options - sliders update on input for real-time feedback
     if (elements.timeFilter) {

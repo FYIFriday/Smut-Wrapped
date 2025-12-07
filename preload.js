@@ -55,6 +55,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearSession: () => ipcRenderer.invoke('clear-session'),
 
   /**
+   * Logs out of AO3 by clearing all session and cache data
+   * @returns {Promise<{success: boolean}>}
+   */
+  logout: () => ipcRenderer.invoke('logout'),
+
+  /**
    * Gets application version information
    * @returns {Promise<{version: string, electronVersion: string, platform: string}>}
    */

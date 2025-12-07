@@ -36,7 +36,7 @@
       <div class="login-container">
         <div class="login-header">
           <h2>Log into AO3</h2>
-          <p class="privacy-note">Your password and data stay on your device</p>
+          <p class="privacy-note">Your login stays saved locally. Use "Log Out" below to clear it.</p>
         </div>
 
         <div class="webview-container">
@@ -56,6 +56,7 @@
           <button id="btn-start-wrapped" class="btn-primary" disabled>
             I'm Logged In - Start My Wrapped!
           </button>
+          <button id="btn-logout" class="btn-text">Log Out of AO3</button>
         </div>
 
         <p id="login-status" class="status-text"></p>
@@ -66,19 +67,19 @@
 
           <div class="filter-group">
             <label for="time-filter">Time Range</label>
-            <input type="range" id="time-filter" class="filter-slider" min="0" max="2" step="1" value="1">
+            <input type="range" id="time-filter" class="filter-slider" min="0" max="2" step="1" value="2">
             <div class="slider-labels">
               <span class="slider-label">All time</span>
               <span class="slider-label">Last 12 months</span>
               <span class="slider-label">Custom pages</span>
             </div>
-            <div id="time-filter-value" class="filter-value">Last 12 months</div>
+            <div id="time-filter-value" class="filter-value">Custom pages</div>
           </div>
 
-          <div id="page-limit-container" class="filter-group hidden">
+          <div id="page-limit-container" class="filter-group">
             <label for="page-limit">Number of pages to scrape</label>
-            <input type="range" id="page-limit" class="filter-slider" min="1" max="50" step="1" value="10">
-            <div class="filter-value"><span id="page-limit-value">10</span> pages</div>
+            <input type="range" id="page-limit" class="filter-slider" min="1" max="69" step="1" value="1">
+            <div class="filter-value"><span id="page-limit-value">1</span> pages</div>
           </div>
 
           <div class="filter-group">
@@ -197,8 +198,6 @@
         <button id="btn-download-all" class="btn-secondary">Download All Slides</button>
         <button id="btn-start-over" class="btn-text">Start Over</button>
       </div>
-
-      <p class="download-warning">Downloaded images may include your AO3 username, ships, and tags. Only save or share where you're comfortable.</p>
     </div>
 
     <!-- Error Modal -->

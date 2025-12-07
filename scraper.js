@@ -8,11 +8,93 @@
 const AO3Scraper = (function () {
   // Constants
   const AO3_BASE_URL = 'https://archiveofourown.org';
-  const RATE_LIMIT_MS = 5000; // 5 seconds between requests
+  const BASE_RATE_LIMIT_MS = 5000; // 5 seconds between requests
+  const MAX_RATE_LIMIT_MS = 60000; // Max 60 seconds between requests when stressed
   const ITEMS_PER_PAGE = 20; // AO3 shows 20 items per history page
+  const MAX_RETRIES = 3; // Max retries for rate-limited requests
 
   // State
   let cancelRequested = false;
+  let currentRateLimitMs = BASE_RATE_LIMIT_MS;
+  let consecutiveErrors = 0;
+  let onRateLimitCallback = null;
+
+  /**
+   * Sets the callback for rate limit notifications
+   * @param {Function} callback - Callback function to call when rate limiting is detected
+   */
+  function setRateLimitCallback(callback) {
+    onRateLimitCallback = callback;
+  }
+
+  /**
+   * Resets the rate limit to base value
+   */
+  function resetRateLimit() {
+    currentRateLimitMs = BASE_RATE_LIMIT_MS;
+    consecutiveErrors = 0;
+  }
+
+  /**
+   * Increases the rate limit due to server stress
+   */
+  function increaseRateLimit() {
+    consecutiveErrors++;
+    // Double the rate limit, up to the maximum
+    currentRateLimitMs = Math.min(currentRateLimitMs * 2, MAX_RATE_LIMIT_MS);
+    if (onRateLimitCallback) {
+      onRateLimitCallback({
+        message: 'AO3 is rate limiting or under strain; slowing the process to be respectful.',
+        currentDelay: currentRateLimitMs / 1000
+      });
+    }
+  }
+
+  /**
+   * Fetches a URL with automatic retry on rate limiting
+   * @param {string} url - URL to fetch
+   * @param {string} errorContext - Context for error messages
+   * @returns {Promise<Object>} Fetch result
+   */
+  async function fetchWithRetry(url, errorContext) {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const result = await window.electronAPI.fetchUrl(url);
+
+      if (result.success) {
+        // Success - decrease rate limit if we had errors before
+        if (consecutiveErrors > 0) {
+          consecutiveErrors = 0;
+          // Gradually decrease rate limit back to normal
+          currentRateLimitMs = Math.max(currentRateLimitMs / 1.5, BASE_RATE_LIMIT_MS);
+        }
+        return result;
+      }
+
+      // Check for rate limiting or server stress
+      if (result.rateLimited || result.timeout) {
+        increaseRateLimit();
+
+        if (attempt < MAX_RETRIES - 1) {
+          // Wait with increased delay before retry
+          await delay(currentRateLimitMs);
+          continue;
+        }
+      }
+
+      // Non-retryable error or max retries reached
+      return result;
+    }
+
+    return { success: false, error: `Max retries exceeded for ${errorContext}` };
+  }
+
+  /**
+   * Gets the current rate limit in milliseconds
+   * @returns {number}
+   */
+  function getCurrentRateLimit() {
+    return currentRateLimitMs;
+  }
 
   /**
    * Delays execution for rate limiting
@@ -84,7 +166,7 @@ const AO3Scraper = (function () {
    * @returns {Promise<number>} Total number of pages
    */
   async function getPageCount(url, errorContext) {
-    const result = await window.electronAPI.fetchUrl(url);
+    const result = await fetchWithRetry(url, errorContext);
 
     if (!result.success) {
       throw new Error(`Failed to fetch ${errorContext}: ${result.error}`);
@@ -220,7 +302,7 @@ const AO3Scraper = (function () {
    */
   async function scrapeHistoryPage(username, pageNum) {
     const url = `${AO3_BASE_URL}/users/${username}/readings?page=${pageNum}`;
-    const result = await window.electronAPI.fetchUrl(url);
+    const result = await fetchWithRetry(url, `history page ${pageNum}`);
 
     if (!result.success) {
       throw new Error(`Failed to fetch history page ${pageNum}: ${result.error}`);
@@ -332,7 +414,7 @@ const AO3Scraper = (function () {
    */
   async function scrapeBookmarkPage(username, pageNum) {
     const url = `${AO3_BASE_URL}/users/${username}/bookmarks?page=${pageNum}`;
-    const result = await window.electronAPI.fetchUrl(url);
+    const result = await fetchWithRetry(url, `bookmark page ${pageNum}`);
 
     if (!result.success) {
       throw new Error(`Failed to fetch bookmark page ${pageNum}: ${result.error}`);
@@ -391,7 +473,7 @@ const AO3Scraper = (function () {
    */
   async function fetchWorkMetadata(workId) {
     const url = `${AO3_BASE_URL}/works/${workId}?view_adult=true`;
-    const result = await window.electronAPI.fetchUrl(url);
+    const result = await fetchWithRetry(url, `work ${workId}`);
 
     if (!result.success) {
       throw new Error(`Failed to fetch work ${workId}: ${result.error}`);
@@ -545,7 +627,7 @@ const AO3Scraper = (function () {
 
       // Rate limit between pages
       if (page < totalPages) {
-        await delay(RATE_LIMIT_MS);
+        await delay(getCurrentRateLimit());
       }
     }
 
@@ -601,7 +683,7 @@ const AO3Scraper = (function () {
 
       // Rate limit between pages
       if (page < totalPages) {
-        await delay(RATE_LIMIT_MS);
+        await delay(getCurrentRateLimit());
       }
     }
 
@@ -652,7 +734,7 @@ const AO3Scraper = (function () {
 
       // Rate limit between work fetches
       if (completed < total) {
-        await delay(RATE_LIMIT_MS);
+        await delay(getCurrentRateLimit());
       }
     }
 
@@ -715,7 +797,7 @@ const AO3Scraper = (function () {
       // Phase 1b: Get bookmarks (if needed)
       if (source === 'both' || source === 'bookmarks') {
         if (source === 'both') {
-          await delay(RATE_LIMIT_MS);
+          await delay(getCurrentRateLimit());
         }
         const bookmarkItems = await scrapeBookmarks(username, onProgress, scrapingOptions, source === 'both' ? 30 : 0);
 
@@ -747,7 +829,7 @@ const AO3Scraper = (function () {
         percent: 30
       });
 
-      await delay(RATE_LIMIT_MS);
+      await delay(getCurrentRateLimit());
 
       const { items, failed } = await enrichWithMetadata(allItems, onProgress);
 
@@ -795,7 +877,10 @@ const AO3Scraper = (function () {
     resetCancel,
     isCancelled,
     getHistoryPageCount,
-    getBookmarkPageCount
+    getBookmarkPageCount,
+    setRateLimitCallback,
+    resetRateLimit,
+    getCurrentRateLimit
   };
 })();
 

@@ -153,16 +153,51 @@ const Visualizer = (function () {
    * @returns {string} HTML string
    */
   function createSummarySlide(stats) {
+    // Build summary items based on available data
+    const items = [];
+
+    items.push(`<strong>${stats.totalWorks}</strong> works read`);
+    items.push(`<strong>${stats.totalWordsFormatted}</strong> words (~${stats.approximateBooks} novels)`);
+
+    if (stats.uniqueFandomCount > 1) {
+      items.push(`<strong>${stats.uniqueFandomCount}</strong> different fandoms`);
+    }
+
+    if (stats.topFandom && stats.topFandom[0]) {
+      items.push(`Top fandom: <strong>${escapeHTML(truncate(stats.topFandom[0], 30))}</strong>`);
+    }
+
+    if (stats.topShip && stats.topShip[0]) {
+      items.push(`Favorite ship: <strong>${escapeHTML(truncate(stats.topShip[0], 30))}</strong>`);
+    }
+
+    if (stats.topAuthor && stats.topAuthor[0]) {
+      items.push(`Most-read author: <strong>${escapeHTML(stats.topAuthor[0])}</strong>`);
+    }
+
+    if (stats.readingTime && stats.readingTime.days > 0) {
+      items.push(`<strong>${stats.readingTime.days}</strong> days of reading time`);
+    }
+
+    if (stats.moodStats && stats.moodStats.preference !== 'Balanced') {
+      items.push(`Mood preference: <strong>${stats.moodStats.preference}</strong>`);
+    }
+
+    if (stats.sizePreference) {
+      items.push(`You love <strong>${stats.sizePreference.label}</strong> reads`);
+    }
+
+    const summaryHTML = items.map(item =>
+      `<p class="summary-item">${item}</p>`
+    ).join('');
+
     return `
       <div class="slide-content">
-        <p class="slide-label">That's a wrap!</p>
+        <p class="slide-label">Your Year in Fic</p>
         <div class="summary-stats">
-          <p class="slide-subtitle">You read <strong>${stats.totalWorks}</strong> works</p>
-          <p class="slide-subtitle">Across <strong>${stats.uniqueFandomCount}</strong> fandoms</p>
-          <p class="slide-subtitle">Totaling <strong>${stats.totalWordsFormatted}</strong> words</p>
-          <p class="slide-subtitle">That's about <strong>${stats.approximateBooks}</strong> novels!</p>
+          ${summaryHTML}
         </div>
-        <p class="slide-small">Here's to another year of fic</p>
+        <p class="slide-small">Here's to another year of amazing stories!</p>
       </div>
     `;
   }
@@ -200,11 +235,12 @@ const Visualizer = (function () {
     }
 
     const authors = work.authors?.join(', ') || 'Anonymous';
+    const workUrl = work.workId ? `https://archiveofourown.org/works/${work.workId}` : null;
 
     return `
       <div class="slide-content">
         <p class="slide-label">${escapeHTML(label)}</p>
-        <h2 class="slide-title">"${escapeHTML(truncate(work.title, 60))}"</h2>
+        <h2 class="slide-title">${workUrl ? `<a href="${workUrl}" target="_blank" class="invisible-link">` : ''}"${escapeHTML(truncate(work.title, 60))}"${workUrl ? '</a>' : ''}</h2>
         <p class="slide-subtitle">by ${escapeHTML(truncate(authors, 40))}</p>
         ${stat ? `<p class="slide-number" style="font-size: 4rem; margin-top: 1rem;">${escapeHTML(String(stat))}</p>` : ''}
         ${statLabel ? `<p class="slide-unit">${escapeHTML(statLabel)}</p>` : ''}
@@ -337,11 +373,15 @@ const Visualizer = (function () {
 
     // Slide 12: Top Author
     if (stats.topAuthor && stats.topAuthor[0]) {
-      slides.push(createTitleSlide({
-        label: 'Your most-read author',
-        title: stats.topAuthor[0],
-        subtitle: `${stats.topAuthor[1]} of their works`
-      }));
+      const authorName = stats.topAuthor[0];
+      const authorUrl = `https://archiveofourown.org/users/${encodeURIComponent(authorName)}/works`;
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">${escapeHTML('Your most-read author')}</p>
+          <h2 class="slide-title"><a href="${authorUrl}" target="_blank" class="invisible-link">${escapeHTML(authorName)}</a></h2>
+          <p class="slide-subtitle">${stats.topAuthor[1]} of their works</p>
+        </div>
+      `);
     }
 
     // Slide 13: Smut Stats (if applicable)
@@ -366,10 +406,117 @@ const Visualizer = (function () {
       }));
     }
 
-    // Slide 15: Summary
+    // Slide: Busiest Month
+    if (stats.busiestMonth) {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">Your busiest month was</p>
+          <h2 class="slide-title">${escapeHTML(stats.busiestMonth.name)}</h2>
+          <p class="slide-subtitle">You read ${escapeHTML(stats.busiestMonth.wordsFormatted)} words!</p>
+        </div>
+      `);
+    }
+
+    // Slide: Reading Days & Streak
+    if (stats.totalReadingDays > 0) {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">Reading Dedication</p>
+          <p class="slide-number">${stats.totalReadingDays}</p>
+          <p class="slide-unit">days with fic</p>
+          ${stats.longestStreak > 1 ? `<p class="slide-subtitle">Your longest streak was ${stats.longestStreak} days in a row!</p>` : ''}
+        </div>
+      `);
+    }
+
+    // Slide: Completed vs WIP
+    if (stats.completionStats && (stats.completionStats.complete > 0 || stats.completionStats.wip > 0)) {
+      const complete = stats.completionStats.complete;
+      const wip = stats.completionStats.wip;
+      let completionMessage = '';
+      if (complete > wip * 2) {
+        completionMessage = 'You like your endings wrapped up nice and neat.';
+      } else if (wip > complete) {
+        completionMessage = 'Living on the edge with those WIPs!';
+      } else {
+        completionMessage = 'A healthy mix of finished and ongoing stories.';
+      }
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">Completion Status</p>
+          <h2 class="slide-title">${complete} complete, ${wip} WIPs</h2>
+          <p class="slide-subtitle">${completionMessage}</p>
+        </div>
+      `);
+    }
+
+    // Slide: Size Preference
+    if (stats.sizePreference) {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">You like ${stats.sizePreference.label} reads!</p>
+          <p class="slide-number" style="font-size: 4rem;">${stats.averageChapters || '?'}</p>
+          <p class="slide-unit">avg chapters per work</p>
+          <p class="slide-subtitle">${escapeHTML(stats.averageWordsFormatted)} words on average</p>
+          <p class="slide-small">${escapeHTML(stats.sizePreference.description)}</p>
+        </div>
+      `);
+    }
+
+    // Slide: Reading Time
+    if (stats.readingTime && stats.readingTime.days > 0) {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">If you were an average reader</p>
+          <p class="slide-number">${stats.readingTime.days}</p>
+          <p class="slide-unit">straight days of reading</p>
+          <p class="slide-subtitle">That's ${stats.readingTime.hours.toLocaleString()} hours of fic!</p>
+          <p class="slide-small">Based on 250 words per minute</p>
+        </div>
+      `);
+    }
+
+    // Slide: Top Trope Tag
+    if (stats.topTropeTag && stats.topTropeTag[0] !== 'Unknown') {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">Your most-read tag was</p>
+          <h2 class="slide-title">${escapeHTML(stats.topTropeTag[0])}</h2>
+          <p class="slide-subtitle">${stats.topTropeTag[1]} works with this tag</p>
+        </div>
+      `);
+    }
+
+    // Slide: Bookmark Stats (if applicable)
+    if (stats.bookmarkStats && stats.bookmarkStats.totalBookmarks > 0) {
+      slides.push(`
+        <div class="slide-content">
+          <p class="slide-label">Your Bookmark Style</p>
+          <p class="slide-number" style="font-size: 4rem;">${stats.bookmarkStats.bookmarkRatio}%</p>
+          <p class="slide-unit">bookmarked</p>
+          <p class="slide-subtitle">${escapeHTML(stats.bookmarkStats.personality?.message || '')}</p>
+        </div>
+      `);
+
+      // Secret favorite slide
+      if (stats.bookmarkStats.secretFavorite && stats.bookmarkStats.bookmarkRatio < 75) {
+        const fav = stats.bookmarkStats.secretFavorite;
+        const favUrl = fav.workId ? `https://archiveofourown.org/works/${fav.workId}` : null;
+        slides.push(`
+          <div class="slide-content">
+            <p class="slide-label">Your secret favorite</p>
+            <h2 class="slide-title">${favUrl ? `<a href="${favUrl}" target="_blank" class="invisible-link">` : ''}"${escapeHTML(truncate(fav.title, 50))}"${favUrl ? '</a>' : ''}</h2>
+            <p class="slide-subtitle">You returned ${fav.visitCount} times, but never bookmarked it</p>
+            <p class="slide-small">Your heart knows what it wants</p>
+          </div>
+        `);
+      }
+    }
+
+    // Summary Slide
     slides.push(createSummarySlide(stats));
 
-    // Slide 16: Thank You
+    // Thank You Slide
     slides.push(createThankYouSlide());
 
     return slides;
