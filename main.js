@@ -58,15 +58,8 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  // Set custom User-Agent for the AO3 session
-  const ao3Session = getAO3Session();
-  ao3Session.webRequest.onBeforeSendHeaders((details, callback) => {
-    if (details.url.includes('archiveofourown.org')) {
-      details.requestHeaders['User-Agent'] =
-        'SmutWrapped/1.0 (Respectful Bot; Desktop App for Personal AO3 Stats)';
-    }
-    callback({ requestHeaders: details.requestHeaders });
-  });
+  // Note: Custom User-Agent for scraping is set in fetch-url handler
+  // The webview uses default browser User-Agent for normal login experience
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
